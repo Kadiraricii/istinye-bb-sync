@@ -112,6 +112,7 @@
 - [ ] 3 sekme: Dosya Türleri / Boyut & Tarih / Video
 - [ ] **Dosya Türleri sekmesi:** checkbox listesi (PDF, sunum, doküman vs.)
 - [ ] **Boyut & Tarih sekmesi:** min/max MB input, tarih aralığı, keyword input
+- [ ] **Bant genişliği seçimi:** 1 / 2 / 5 eş zamanlı indirme radio butonu
 - [ ] **Video sekmesi:** İndir (yt-dlp) / Link kaydet seçimi + kalite dropdown
 - [ ] Aktif sekme: alt border accent rengi
 - [ ] Alt özet bar: "X dosya · Y GB indirilecek" (filtre değişince canlı güncelleme)
@@ -156,6 +157,7 @@
 - [ ] Retry modu: sadece başarısız item'ları yeniden deneme
 - [ ] Beklenmedik Blackboard DOM değişikliklerine karşı hata yakalama
 - [ ] Disk dolu kontrolü (indirme öncesi yeterli alan var mı?)
+- [ ] Büyük dosya uyarısı (>50MB dosya öncesi onay popup'ı)
 - [ ] Tüm ekranlarda klavye navigasyonu (Tab, Enter, Escape)
 - [ ] `setup.sh` son test (temiz ortamda)
 - [ ] README güncelleme (gerçek ekran görüntüleri)
