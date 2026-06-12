@@ -46,23 +46,23 @@ SHAREPOINT_DOMAINS = ["sharepoint.com", "microsoftstream.com"]
 VIDEO_QUALITIES    = ["best", "1080", "720", "worst"]
 DEFAULT_QUALITY    = "720"
 
-# ── GUI Renk Paleti (Ocean Dark) ──────────────────────────────
-BG_BASE      = "#02091a"   # derin uzay mavisi
-BG_ELEVATED  = "#071628"   # gece yarısı lacivert
-BG_HOVER     = "#0d2040"   # hover lacivert
-BORDER       = "#163d6e"   # çelik mavi kenarlık
-BORDER_FAINT = "#0b1e38"
+# ── GUI Renk Paleti (Midnight Indigo) ─────────────────────────
+BG_BASE      = "#0a0a0f"   # near-black, çok hafif indigo tonu
+BG_ELEVATED  = "#111118"   # kart yüzeyi
+BG_HOVER     = "#18182a"   # hover durumu
+BORDER       = "#242438"   # ince kenarlık
+BORDER_FAINT = "#16162a"   # çok soluk kenarlık
 
-TEXT_PRIMARY   = "#dbeafe"   # soğuk beyaz
-TEXT_SECONDARY = "#5b8db8"   # pastel mavi
-TEXT_TERTIARY  = "#2d5070"   # soluk mavi-gri
+TEXT_PRIMARY   = "#e8e8f0"   # soğuk beyaz
+TEXT_SECONDARY = "#7878a0"   # soluk slate
+TEXT_TERTIARY  = "#353550"   # çok soluk
 
-ACCENT     = "#0ea5e9"   # gökyüzü mavisi (canlı)
-ACCENT_BG  = "#062240"
-SUCCESS    = "#10b981"   # zümrüt yeşili
-WARNING    = "#f59e0b"   # kehribar
-ERROR      = "#f43f5e"   # gül kırmızısı
-INFO       = "#38bdf8"   # açık mavi
+ACCENT     = "#5e6ad2"   # Linear indigo-mavi (2025 trendi)
+ACCENT_BG  = "#0a0c28"
+SUCCESS    = "#16c784"   # canlı yeşil
+WARNING    = "#f7a71c"   # kehribar
+ERROR      = "#e54d2e"   # domates kırmızı
+INFO       = "#7db0d8"   # pastel mavi
 
 # ── GUI Boyutlar ──────────────────────────────────────────────
 WINDOW_WIDTH   = 720
