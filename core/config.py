@@ -46,23 +46,23 @@ SHAREPOINT_DOMAINS = ["sharepoint.com", "microsoftstream.com"]
 VIDEO_QUALITIES    = ["best", "1080", "720", "worst"]
 DEFAULT_QUALITY    = "720"
 
-# ── GUI Renk Paleti (Midnight Indigo) ─────────────────────────
-BG_BASE      = "#0a0a0f"   # near-black, çok hafif indigo tonu
-BG_ELEVATED  = "#111118"   # kart yüzeyi
-BG_HOVER     = "#18182a"   # hover durumu
-BORDER       = "#242438"   # ince kenarlık
-BORDER_FAINT = "#16162a"   # çok soluk kenarlık
+# ── GUI Renk Paleti (Deep Navy + Emerald) ─────────────────────
+BG_BASE      = "#070a12"   # gece mavisi
+BG_ELEVATED  = "#0d1120"   # koyu lacivert kart
+BG_HOVER     = "#131828"   # hover lacivert
+BORDER       = "#1c2440"   # çelik mavi kenarlık
+BORDER_FAINT = "#111830"   # çok ince kenarlık
 
-TEXT_PRIMARY   = "#e8e8f0"   # soğuk beyaz
-TEXT_SECONDARY = "#7878a0"   # soluk slate
-TEXT_TERTIARY  = "#353550"   # çok soluk
+TEXT_PRIMARY   = "#e2eaf6"   # mavi-beyaz
+TEXT_SECONDARY = "#526d8a"   # çelik mavi
+TEXT_TERTIARY  = "#2a3d55"   # çok soluk
 
-ACCENT     = "#5e6ad2"   # Linear indigo-mavi (2025 trendi)
-ACCENT_BG  = "#0a0c28"
-SUCCESS    = "#16c784"   # canlı yeşil
-WARNING    = "#f7a71c"   # kehribar
-ERROR      = "#e54d2e"   # domates kırmızı
-INFO       = "#7db0d8"   # pastel mavi
+ACCENT     = "#10b981"   # emerald-500
+ACCENT_BG  = "#052e1c"   # koyu emerald arka plan
+SUCCESS    = "#34d399"   # emerald-400
+WARNING    = "#f59e0b"   # amber
+ERROR      = "#f43f5e"   # gül kırmızı
+INFO       = "#60a5fa"   # blue-400
 
 # ── GUI Boyutlar ──────────────────────────────────────────────
 WINDOW_WIDTH   = 720
