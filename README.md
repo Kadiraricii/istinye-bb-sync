@@ -1,5 +1,9 @@
 # Blackboard Downloader
 
+![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat&logo=python&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-green?style=flat)
+![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey?style=flat)
+
 Istinye Üniversitesi Blackboard Ultra sistemindeki ders materyallerini otomatik olarak indiren masaüstü uygulaması.
 
 ---
