@@ -1,13 +1,13 @@
 # Roadmap
 
-## Sprint 1 — Temel Yapı
+## Sprint 1 — Temel Yapı ✅
 > `config.py` · `models.py` · `state.py`
 
-- [ ] `config.py` — URL'ler, email domain, path'ler, sabitler
-- [ ] `models.py` — `Course`, `Item`, `ItemType`, `DownloadStatus`, `CourseStatus` dataclass'ları
-- [ ] `state.py` — `manifest.json` okuma/yazma
-- [ ] `state.py` — `progress.json` okuma/yazma
-- [ ] `state.py` — `data/` klasörü otomatik oluşturma
+- [x] `config.py` — URL'ler, email domain, path'ler, sabitler
+- [x] `models.py` — `Course`, `Item`, `ItemType`, `DownloadStatus`, `CourseStatus` dataclass'ları
+- [x] `state.py` — `manifest.json` okuma/yazma
+- [x] `state.py` — `progress.json` okuma/yazma
+- [x] `state.py` — `data/` klasörü otomatik oluşturma
 
 ---
 
@@ -168,7 +168,7 @@
 
 | Sprint | Konu | Durum |
 |--------|------|-------|
-| 1 | Temel yapı | ⬜ Bekliyor |
+| 1 | Temel yapı | ✅ Tamamlandı |
 | 2 | Auth & Login | ⬜ Bekliyor |
 | 3 | Crawler — Dersler | ⬜ Bekliyor |
 | 4 | Crawler — İçerikler | ⬜ Bekliyor |
