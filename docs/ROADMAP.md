@@ -51,24 +51,24 @@
 
 ---
 
-## Sprint 5 — Downloader
+## Sprint 5 — Downloader ✅
 > `downloader.py`
 
-- [ ] `httpx` async stream ile dosya indirme
-- [ ] `.tmp` uzantısıyla geçici indirme, tamamlanınca rename
-- [ ] **Doğrulama 1:** Boyut > 0 kontrolü
-- [ ] **Doğrulama 2:** Sahte HTML sayfası tespiti (içerik başlangıcı kontrolü)
-- [ ] **Doğrulama 3:** Minimum boyut eşiği (tip bazlı)
-- [ ] Bağlantı kopunca geçici dosyayı silme ve retry
-- [ ] Asyncio Semaphore ile concurrent indirme (1/2/5 ayarlanabilir)
-- [ ] İndirmeler arası rastgele bekleme (0.5–1.5 sn)
-- [ ] `yt-dlp` ile SharePoint Stream video indirme
-- [ ] Video URL → `video_links.txt` kaydetme (link modu)
-- [ ] `links.txt` ve `scorm_links.txt` oluşturma
-- [ ] `progress.json` güncelleme (her başarılı indirmede)
-- [ ] Dosya adı: Türkçe → ASCII (`python-slugify`)
-- [ ] Aynı isimde dosya varsa `_2`, `_3` eki
-- [ ] Klasör yapısını `path_hint`'e göre oluşturma
+- [x] `httpx` async stream ile dosya indirme
+- [x] `.tmp` uzantısıyla geçici indirme, tamamlanınca rename
+- [x] **Doğrulama 1:** Boyut > 0 kontrolü
+- [x] **Doğrulama 2:** Sahte HTML sayfası tespiti (içerik başlangıcı kontrolü)
+- [x] **Doğrulama 3:** Minimum boyut eşiği (tip bazlı)
+- [x] Bağlantı kopunca geçici dosyayı silme ve retry
+- [x] Asyncio Semaphore ile concurrent indirme (1/2/5 ayarlanabilir)
+- [x] İndirmeler arası rastgele bekleme (0.5–1.5 sn)
+- [x] `yt-dlp` ile SharePoint Stream video indirme
+- [x] Video URL → `video_links.txt` kaydetme (link modu)
+- [x] `links.txt` ve `scorm_links.txt` oluşturma
+- [x] `progress.json` güncelleme (her başarılı indirmede)
+- [x] Dosya adı: Türkçe → ASCII (`python-slugify`)
+- [x] Aynı isimde dosya varsa `_2`, `_3` eki
+- [x] Klasör yapısını `path_hint`'e göre oluşturma
 
 ---
 
@@ -171,7 +171,7 @@
 | 2 | Auth & Login | ✅ Tamamlandı |
 | 3 | Crawler — Dersler | ✅ Tamamlandı |
 | 4 | Crawler — İçerikler | ✅ Tamamlandı |
-| 5 | Downloader | ⬜ Bekliyor |
+| 5 | Downloader | ✅ Tamamlandı |
 | 6 | GUI: Login | ⬜ Bekliyor |
 | 7 | GUI: Ders Seçimi | ⬜ Bekliyor |
 | 8 | GUI: Filtreler | ⬜ Bekliyor |
