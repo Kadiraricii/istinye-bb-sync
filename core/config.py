@@ -64,7 +64,7 @@ ERROR      = "#f87171"
 INFO       = "#60a5fa"
 
 # ── GUI Boyutlar ──────────────────────────────────────────────
-WINDOW_WIDTH   = 540
-WINDOW_HEIGHT  = 620
+WINDOW_WIDTH   = 720
+WINDOW_HEIGHT  = 700
 COMPACT_HEIGHT = 48
 CORNER_RADIUS  = 6

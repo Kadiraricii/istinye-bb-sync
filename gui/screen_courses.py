@@ -94,7 +94,7 @@ class CoursesScreen(ctk.CTkFrame):
 
         # Başlık + karşılama
         head_center = ctk.CTkFrame(hdr, fg_color="transparent")
-        head_center.grid(row=0, column=1, padx=10, pady=(10, 8), sticky="w")
+        head_center.grid(row=0, column=1, padx=10, pady=(10, 8), sticky="ew")
 
         title_row = ctk.CTkFrame(head_center, fg_color="transparent")
         title_row.pack(anchor="w")
@@ -477,7 +477,7 @@ class _CourseCard(ctk.CTkFrame):
             font=FONT_BODY,
             text_color=TEXT_PRIMARY,
             anchor="w",
-            wraplength=190,
+            wraplength=280,
             justify="left",
         ).grid(row=1, column=0, padx=12, pady=(4, 0), sticky="w")
 
@@ -503,18 +503,29 @@ class _CourseCard(ctk.CTkFrame):
         if mb > 0:
             parts.append(f"~{mb:.0f} MB")
 
-        if self._course.status == CourseStatus.CRAWLED:
-            stats_text = "  ·  ".join(parts) if parts else "İçerik bulunamadı"
+        if self._course.status != CourseStatus.CRAWLED:
+            # Henüz taranmadı
+            ctk.CTkLabel(
+                self,
+                text="⏳ Taranıyor...",
+                font=FONT_SMALL,
+                text_color=TEXT_TERTIARY,
+                anchor="w",
+            ).grid(row=3, column=0, padx=12, pady=(3, 10), sticky="w")
+        elif parts:
+            # Tarandı ve içerik var
+            ctk.CTkLabel(
+                self,
+                text="  ·  ".join(parts),
+                font=FONT_SMALL,
+                text_color=TEXT_TERTIARY,
+                anchor="w",
+            ).grid(row=3, column=0, padx=12, pady=(3, 10), sticky="w")
         else:
-            stats_text = "⏳ Taranıyor..."
-
-        ctk.CTkLabel(
-            self,
-            text=stats_text,
-            font=FONT_SMALL,
-            text_color=TEXT_TERTIARY,
-            anchor="w",
-        ).grid(row=3, column=0, padx=12, pady=(3, 10), sticky="w")
+            # Tarandı ama indirilebilir dosya yok — satırı gösterme, sadece alt boşluk
+            ctk.CTkFrame(self, fg_color="transparent", height=10).grid(
+                row=3, column=0, sticky="w",
+            )
 
     def set_selected(self, selected: bool) -> None:
         self._selected = selected
