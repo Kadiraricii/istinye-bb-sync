@@ -12,12 +12,17 @@ from gui.theme import (
     DOT_BUSY, DOT_ERROR, DOT_IDLE, DOT_OK,
     FONT_BODY, FONT_SMALL,
     TEXT_PRIMARY, TEXT_SECONDARY, TEXT_TERTIARY,
-    ERROR,
+    ERROR, SUCCESS,
 )
+
+# ── Renk sabitleri ───────────────────────────────────────────
+_ACCENT_HOVER = "#0284c7"
+_CARD_BG      = "#071628"   # kart arka planı (BG_ELEVATED ile aynı ama sabit)
+_STEP_FG      = "#0a1e38"   # adım geçiş rengi
 
 
 class LoginScreen(ctk.CTkFrame):
-    """Login ekranı — beni hatırla + isteğe bağlı şifre."""
+    """İki adımlı login ekranı: adım-1 öğrenci no → adım-2 şifre."""
 
     def __init__(
         self,
@@ -30,300 +35,354 @@ class LoginScreen(ctk.CTkFrame):
         self._on_status_ext    = on_status
         self._login_running    = False
         self._auth: Optional[BlackboardAuth] = None
-        self._build()
-        self._load_remembered()
+        self._student_no_val   = ""   # adım 1'den adım 2'ye taşınır
+        self._remembered       = load_remembered_user()
+        self._build_outer()
+        self._build_step1()
 
-    # ── Layout ────────────────────────────────────────────────
+    # ─────────────────────────────────────────────────────────
+    # DIŞ KABUK  — logo / başlık / kart referansı / status
+    # ─────────────────────────────────────────────────────────
 
-    def _build(self) -> None:
+    def _build_outer(self) -> None:
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
-        # ── Üst accent şeridi ────────────────────
+        # Üst accent şeridi
         ctk.CTkFrame(self, fg_color=ACCENT, corner_radius=0, height=3).grid(
             row=0, column=0, sticky="ew",
         )
 
-        # ── Orta alan ────────────────────────────
         body = ctk.CTkFrame(self, fg_color="transparent")
         body.grid(row=1, column=0, sticky="nsew")
         body.grid_columnconfigure(0, weight=1)
         body.grid_rowconfigure(0, weight=1)
 
-        center = ctk.CTkFrame(body, fg_color="transparent")
-        center.grid(row=0, column=0, padx=60)
-        center.grid_columnconfigure(0, weight=1)
+        self._center = ctk.CTkFrame(body, fg_color="transparent")
+        self._center.grid(row=0, column=0, padx=60)
+        self._center.grid_columnconfigure(0, weight=1)
 
         r = 0
 
-        # ── Logo ─────────────────────────────────
-        logo_wrap = ctk.CTkFrame(center, fg_color="transparent")
-        logo_wrap.grid(row=r, column=0, pady=(0, 8)); r += 1
+        # Logo
+        logo_wrap = ctk.CTkFrame(self._center, fg_color="transparent")
+        logo_wrap.grid(row=r, column=0, pady=(0, 10)); r += 1
 
-        logo_box = ctk.CTkFrame(
-            logo_wrap, fg_color=ACCENT, corner_radius=14, width=58, height=58,
+        logo_outer = ctk.CTkFrame(
+            logo_wrap, fg_color=BORDER, corner_radius=18, width=68, height=68,
         )
-        logo_box.pack(anchor="center")
-        logo_box.grid_propagate(False)
+        logo_outer.pack(anchor="center")
+        logo_outer.grid_propagate(False)
+
+        logo_inner = ctk.CTkFrame(
+            logo_outer, fg_color=ACCENT, corner_radius=14, width=54, height=54,
+        )
+        logo_inner.place(relx=0.5, rely=0.5, anchor="center")
+        logo_inner.grid_propagate(False)
         ctk.CTkLabel(
-            logo_box, text="B",
-            font=("Inter", 28, "bold"), text_color="#ffffff",
+            logo_inner, text="B",
+            font=("Inter", 26, "bold"), text_color="#ffffff",
         ).place(relx=0.5, rely=0.5, anchor="center")
 
-        # ── Başlık ───────────────────────────────
+        # Başlık
         ctk.CTkLabel(
-            center, text="Blackboard Sync",
-            font=("Inter", 24, "bold"), text_color=TEXT_PRIMARY,
-        ).grid(row=r, column=0, pady=(10, 2)); r += 1
+            self._center, text="Blackboard Sync",
+            font=("Inter", 26, "bold"), text_color=TEXT_PRIMARY,
+        ).grid(row=r, column=0, pady=(0, 3)); r += 1
 
         ctk.CTkLabel(
-            center,
+            self._center,
             text="Istinye Üniversitesi  ·  Ders Materyali İndirici",
             font=FONT_SMALL, text_color=TEXT_TERTIARY,
-        ).grid(row=r, column=0, pady=(0, 24)); r += 1
+        ).grid(row=r, column=0, pady=(0, 22)); r += 1
 
-        # ── Form kartı ───────────────────────────
-        card = ctk.CTkFrame(
-            center,
-            fg_color=BG_ELEVATED,
-            corner_radius=16,
+        # ── Kart (içeriği adım adım değişir) ────
+        self._card = ctk.CTkFrame(
+            self._center,
+            fg_color=_CARD_BG,
+            corner_radius=18,
             border_width=1,
             border_color=BORDER,
         )
-        card.grid(row=r, column=0, sticky="ew", pady=(0, 14)); r += 1
-        card.grid_columnconfigure(0, weight=1)
+        self._card.grid(row=r, column=0, sticky="ew"); r += 1
+        self._card.grid_columnconfigure(0, weight=1)
 
-        # ── Hoş geldin bölümü (remembered user) ──────────────
-        # Gizli başlar; _load_remembered() açar
-        self._welcome_wrap = ctk.CTkFrame(card, fg_color="transparent")
-        self._welcome_wrap.grid(row=0, column=0, padx=22, pady=(18, 0), sticky="ew")
-        self._welcome_wrap.grid_columnconfigure(1, weight=1)
-        self._welcome_wrap.grid_remove()
-
-        # Avatar dairesi
-        self._avatar_box = ctk.CTkFrame(
-            self._welcome_wrap, fg_color=ACCENT, corner_radius=20, width=40, height=40,
+        # ── Status + güvenlik notu ───────────────
+        bottom = ctk.CTkFrame(
+            self._center,
+            fg_color=BG_ELEVATED,
+            corner_radius=10,
+            border_width=1,
+            border_color=BORDER,
         )
-        self._avatar_box.grid(row=0, column=0, rowspan=2)
-        self._avatar_box.grid_propagate(False)
-        self._avatar_lbl = ctk.CTkLabel(
-            self._avatar_box, text="?",
-            font=("Inter", 18, "bold"), text_color="#ffffff",
-        )
-        self._avatar_lbl.place(relx=0.5, rely=0.5, anchor="center")
+        bottom.grid(row=r, column=0, sticky="ew", pady=(16, 0)); r += 1
+        bottom.grid_columnconfigure(1, weight=1)
 
-        # İsim + numara
-        self._lbl_welcome_name = ctk.CTkLabel(
-            self._welcome_wrap, text="",
-            font=("Inter", 13, "bold"), text_color=TEXT_PRIMARY, anchor="w",
+        # Sol dot
+        self._dot = ctk.CTkLabel(
+            bottom, text="●",
+            font=("Inter", 10), text_color=DOT_IDLE, width=14,
         )
-        self._lbl_welcome_name.grid(row=0, column=1, padx=(12, 0), sticky="w")
+        self._dot.grid(row=0, column=0, padx=(14, 4), pady=10)
 
-        self._lbl_welcome_email = ctk.CTkLabel(
-            self._welcome_wrap, text="",
+        # Status metni
+        self._lbl_status = ctk.CTkLabel(
+            bottom, text="Hazır",
             font=("Inter", 11), text_color=TEXT_TERTIARY, anchor="w",
         )
-        self._lbl_welcome_email.grid(row=1, column=1, padx=(12, 0), sticky="w")
+        self._lbl_status.grid(row=0, column=1, sticky="w", pady=10)
 
-        # "Farklı hesap" linki
-        ctk.CTkButton(
-            self._welcome_wrap,
-            text="Farklı hesap",
-            command=self._switch_account,
-            fg_color="transparent", hover_color=BG_HOVER,
-            text_color=TEXT_TERTIARY, font=("Inter", 10),
-            corner_radius=4, height=22, width=90,
-        ).grid(row=0, column=2, rowspan=2, padx=(4, 0))
+        # Güvenlik badge
+        ctk.CTkLabel(
+            bottom,
+            text="🔒 Şifre kaydedilmez",
+            font=("Inter", 10), text_color=TEXT_TERTIARY,
+        ).grid(row=0, column=2, padx=(0, 14), pady=10)
 
-        # Separator (welcome altı, gizli başlar)
-        self._welcome_sep = ctk.CTkFrame(card, height=1, fg_color=BORDER)
-        self._welcome_sep.grid(row=1, column=0, padx=22, pady=(14, 0), sticky="ew")
-        self._welcome_sep.grid_remove()
+        # Alt çizgi
+        ctk.CTkFrame(self, fg_color=BG_ELEVATED, corner_radius=0, height=1).grid(
+            row=2, column=0, sticky="ew",
+        )
 
-        # ── Öğrenci Numarası ─────────────────────
+    # ─────────────────────────────────────────────────────────
+    # ADIM 1  — Öğrenci Numarası
+    # ─────────────────────────────────────────────────────────
+
+    def _build_step1(self) -> None:
+        self._clear_card()
+        card = self._card
+
+        r = 0
+        if self._remembered:
+            self._build_welcome_block(card, start_row=0)
+            r = 3
+
+        # ── Label ─────────────────────────────────
         ctk.CTkLabel(
             card, text="Öğrenci Numarası",
-            font=("Inter", 11, "bold"), text_color=TEXT_SECONDARY, anchor="w",
-        ).grid(row=2, column=0, padx=22, pady=(18, 4), sticky="w")
+            font=("Inter", 13, "bold"), text_color=TEXT_PRIMARY, anchor="w",
+        ).grid(row=r, column=0, padx=26, pady=(26, 7), sticky="w"); r += 1
 
+        # ── Entry ─────────────────────────────────
         self._entry_no = ctk.CTkEntry(
             card,
             placeholder_text="Örn. 2200000000",
             fg_color=BG_BASE, border_color=BORDER, border_width=1,
             text_color=TEXT_PRIMARY, placeholder_text_color=TEXT_TERTIARY,
-            corner_radius=8, font=FONT_BODY, height=42,
+            corner_radius=10, font=("Inter", 14), height=50,
         )
-        self._entry_no.grid(row=3, column=0, padx=22, sticky="ew")
+        self._entry_no.grid(row=r, column=0, padx=26, sticky="ew"); r += 1
+        if self._remembered:
+            self._entry_no.insert(0, self._remembered["student_no"])
         self._entry_no.bind("<KeyRelease>", self._on_no_change)
-        self._entry_no.bind("<Return>",     lambda _: self._entry_pwd.focus())
+        self._entry_no.bind("<Return>", lambda _: self._validate_step1())
+        self._entry_no.focus_set()
+
+        # ── E-posta önizleme (chip) ────────────────
+        email_wrap = ctk.CTkFrame(card, fg_color="transparent")
+        email_wrap.grid(row=r, column=0, padx=26, pady=(8, 0), sticky="w"); r += 1
+        email_wrap.grid_columnconfigure(0, weight=0)
 
         self._lbl_email = ctk.CTkLabel(
-            card, text="",
-            font=("Inter", 11), text_color=TEXT_TERTIARY, anchor="w",
+            email_wrap, text="",
+            font=("Inter", 10), text_color=ACCENT, anchor="w",
         )
-        self._lbl_email.grid(row=4, column=0, padx=22, pady=(5, 0), sticky="w")
+        self._lbl_email.pack(side="left")
 
-        # ── Ayırıcı ──────────────────────────────
-        ctk.CTkFrame(card, height=1, fg_color=BORDER).grid(
-            row=5, column=0, padx=22, pady=(16, 0), sticky="ew",
+        if self._remembered:
+            self._on_no_change()
+
+        # ── Devam Et butonu ───────────────────────
+        self._btn_main = ctk.CTkButton(
+            card,
+            text="Devam Et  →",
+            command=self._validate_step1,
+            fg_color=ACCENT, hover_color=_ACCENT_HOVER,
+            text_color="#ffffff", corner_radius=10,
+            font=("Inter", 14, "bold"), height=52,
         )
+        self._btn_main.grid(row=r, column=0, padx=26, pady=(22, 26), sticky="ew")
 
-        # ── Şifre (isteğe bağlı) ─────────────────
-        pwd_label_row = ctk.CTkFrame(card, fg_color="transparent")
-        pwd_label_row.grid(row=6, column=0, padx=22, pady=(14, 4), sticky="w")
+    def _build_welcome_block(self, card: ctk.CTkFrame, start_row: int) -> None:
+        """Hatırlanan kullanıcı için kompakt profil satırı."""
+        name = self._remembered.get("name", "")
+        no   = self._remembered.get("student_no", "")
+        initial = name.strip()[0].upper() if name.strip() else "?"
+
+        row = ctk.CTkFrame(card, fg_color="transparent")
+        row.grid(row=start_row, column=0, padx=24, pady=(20, 0), sticky="ew")
+        row.grid_columnconfigure(1, weight=1)
+
+        # Avatar
+        av = ctk.CTkFrame(row, fg_color=ACCENT, corner_radius=20, width=40, height=40)
+        av.grid(row=0, column=0, rowspan=2)
+        av.grid_propagate(False)
+        ctk.CTkLabel(
+            av, text=initial,
+            font=("Inter", 17, "bold"), text_color="#ffffff",
+        ).place(relx=0.5, rely=0.5, anchor="center")
 
         ctk.CTkLabel(
-            pwd_label_row, text="Şifre",
+            row, text=name,
+            font=("Inter", 13, "bold"), text_color=TEXT_PRIMARY, anchor="w",
+        ).grid(row=0, column=1, padx=(12, 0), sticky="w")
+
+        ctk.CTkLabel(
+            row, text=f"{no}@stu.istinye.edu.tr",
+            font=("Inter", 10), text_color=TEXT_TERTIARY, anchor="w",
+        ).grid(row=1, column=1, padx=(12, 0), sticky="w")
+
+        ctk.CTkButton(
+            row, text="Farklı hesap",
+            command=self._switch_account,
+            fg_color="transparent", hover_color=BG_HOVER,
+            text_color=TEXT_TERTIARY, font=("Inter", 10),
+            corner_radius=5, height=26, width=88,
+        ).grid(row=0, column=2, rowspan=2)
+
+        # Alt çizgi
+        ctk.CTkFrame(card, height=1, fg_color=BORDER).grid(
+            row=start_row + 1, column=0, padx=24, pady=(14, 0), sticky="ew",
+        )
+
+    # ─────────────────────────────────────────────────────────
+    # ADIM 2  — Şifre
+    # ─────────────────────────────────────────────────────────
+
+    def _build_step2(self) -> None:
+        self._clear_card()
+        card = self._card
+
+        no   = self._student_no_val
+        name = (self._remembered or {}).get("name", "")
+        initial = name.strip()[0].upper() if name.strip() else no[:1].upper() if no else "?"
+
+        # ── Geri butonu ───────────────────────────
+        ctk.CTkButton(
+            card, text="← Geri",
+            command=self._go_back,
+            fg_color="transparent", hover_color=BG_HOVER,
+            text_color=TEXT_SECONDARY, font=("Inter", 12),
+            corner_radius=7, height=30, width=74,
+            anchor="w",
+        ).grid(row=0, column=0, padx=(18, 0), pady=(14, 0), sticky="w")
+
+        # ── Kimlik özeti ───────────────────────────
+        id_row = ctk.CTkFrame(card, fg_color=BG_HOVER, corner_radius=10)
+        id_row.grid(row=1, column=0, padx=24, pady=(10, 0), sticky="ew")
+        id_row.grid_columnconfigure(1, weight=1)
+
+        av = ctk.CTkFrame(id_row, fg_color=ACCENT, corner_radius=18, width=36, height=36)
+        av.grid(row=0, column=0, rowspan=2, padx=(14, 0), pady=12)
+        av.grid_propagate(False)
+        ctk.CTkLabel(
+            av, text=initial,
+            font=("Inter", 15, "bold"), text_color="#ffffff",
+        ).place(relx=0.5, rely=0.5, anchor="center")
+
+        display = name if name else no
+        ctk.CTkLabel(
+            id_row, text=display,
+            font=("Inter", 12, "bold"), text_color=TEXT_PRIMARY, anchor="w",
+        ).grid(row=0, column=1, padx=(10, 14), pady=(12, 2), sticky="w")
+
+        ctk.CTkLabel(
+            id_row, text=f"{no}@stu.istinye.edu.tr",
+            font=("Inter", 10), text_color=TEXT_TERTIARY, anchor="w",
+        ).grid(row=1, column=1, padx=(10, 14), pady=(0, 12), sticky="w")
+
+        # Yeşil "giriş yapılıyor" dot
+        dot = ctk.CTkLabel(
+            id_row, text="●",
+            font=("Inter", 9), text_color=SUCCESS,
+        )
+        dot.grid(row=0, column=2, padx=(0, 14), pady=(12, 0))
+
+        # ── Separator ─────────────────────────────
+        ctk.CTkFrame(card, height=1, fg_color=BORDER).grid(
+            row=2, column=0, padx=24, pady=(16, 0), sticky="ew",
+        )
+
+        # ── Şifre label ───────────────────────────
+        pwd_hdr = ctk.CTkFrame(card, fg_color="transparent")
+        pwd_hdr.grid(row=3, column=0, padx=24, pady=(14, 5), sticky="w")
+
+        ctk.CTkLabel(
+            pwd_hdr, text="Şifre",
             font=("Inter", 11, "bold"), text_color=TEXT_SECONDARY,
         ).pack(side="left")
 
         ctk.CTkLabel(
-            pwd_label_row,
-            text="  isteğe bağlı  ",
-            font=("Inter", 9, "bold"),
-            text_color=TEXT_TERTIARY,
-            fg_color=BG_HOVER,
-            corner_radius=4,
+            pwd_hdr, text="  isteğe bağlı  ",
+            font=("Inter", 9, "bold"), text_color=TEXT_TERTIARY,
+            fg_color=BG_HOVER, corner_radius=4,
         ).pack(side="left", padx=(6, 0))
 
+        # ── Şifre entry ───────────────────────────
         self._entry_pwd = ctk.CTkEntry(
             card,
-            placeholder_text="Şifreyi buraya girebilirsiniz",
+            placeholder_text="Microsoft şifrenizi girin",
             show="•",
             fg_color=BG_BASE, border_color=BORDER, border_width=1,
             text_color=TEXT_PRIMARY, placeholder_text_color=TEXT_TERTIARY,
-            corner_radius=8, font=FONT_BODY, height=42,
+            corner_radius=9, font=FONT_BODY, height=44,
         )
-        self._entry_pwd.grid(row=7, column=0, padx=22, sticky="ew")
+        self._entry_pwd.grid(row=4, column=0, padx=24, sticky="ew")
         self._entry_pwd.bind("<Return>", lambda _: self._start_login())
+        self._entry_pwd.focus_set()
 
-        # ── Bilgi notu ───────────────────────────
-        note_wrap = ctk.CTkFrame(card, fg_color="transparent")
-        note_wrap.grid(row=8, column=0, padx=22, pady=(10, 0), sticky="ew")
-        note_wrap.grid_columnconfigure(1, weight=1)
+        # ── Bilgi notu ────────────────────────────
+        note = ctk.CTkFrame(card, fg_color="transparent")
+        note.grid(row=5, column=0, padx=24, pady=(10, 0), sticky="ew")
+        note.grid_columnconfigure(1, weight=1)
 
-        ctk.CTkFrame(note_wrap, fg_color=ACCENT, width=2, corner_radius=2).grid(
-            row=0, column=0, sticky="ns", padx=(0, 8),
+        ctk.CTkFrame(note, fg_color=ACCENT, width=2, corner_radius=2).grid(
+            row=0, column=0, sticky="ns", padx=(0, 10),
         )
         ctk.CTkLabel(
-            note_wrap,
+            note,
             text=(
-                "Şifreyi girerseniz tarayıcıda otomatik doldurulur.\n"
-                "Boş bırakırsanız tarayıcı açılır ve kendiniz girersiniz."
+                "Girilirse Blackboard oturumunuz otomatik açılır.\n"
+                "Boş bırakırsanız tarayıcıda manuel giriş yapmanız gerekir."
             ),
-            font=("Inter", 10),
-            text_color=TEXT_TERTIARY,
-            justify="left", anchor="w",
-            wraplength=360,
+            font=("Inter", 10), text_color=TEXT_TERTIARY,
+            justify="left", anchor="w", wraplength=380,
         ).grid(row=0, column=1, sticky="w")
 
-        # ── Ayırıcı ──────────────────────────────
+        # ── Separator ─────────────────────────────
         ctk.CTkFrame(card, height=1, fg_color=BORDER).grid(
-            row=9, column=0, padx=22, pady=(14, 0), sticky="ew",
+            row=6, column=0, padx=24, pady=(14, 0), sticky="ew",
         )
 
-        # ── Devam Et butonu ──────────────────────
-        self._btn_login = ctk.CTkButton(
+        # ── Giriş Yap butonu ──────────────────────
+        self._btn_main = ctk.CTkButton(
             card,
-            text="Devam Et  →",
+            text="Giriş Yap  ✓",
             command=self._start_login,
-            fg_color=ACCENT, hover_color="#6366f1",
-            text_color="#ffffff", corner_radius=8,
-            font=("Inter", 13, "bold"), height=44,
+            fg_color=ACCENT, hover_color=_ACCENT_HOVER,
+            text_color="#ffffff", corner_radius=9,
+            font=("Inter", 13, "bold"), height=46,
         )
-        self._btn_login.grid(row=10, column=0, padx=22, pady=(14, 10), sticky="ew")
+        self._btn_main.grid(row=7, column=0, padx=24, pady=(14, 10), sticky="ew")
 
-        # ── Tarayıcıyı Göster (login sırasında görünür) ──────
+        # ── Tarayıcıyı Göster (login sırasında) ──
         self._btn_show_browser = ctk.CTkButton(
             card,
             text="🔍  Tarayıcıyı Göster",
             command=self._show_browser,
             fg_color="transparent", hover_color=BG_HOVER,
-            text_color=ACCENT, corner_radius=8,
-            font=("Inter", 12), height=34,
+            text_color=ACCENT, corner_radius=9,
+            font=("Inter", 11), height=34,
             border_width=1, border_color=BORDER,
         )
-        self._btn_show_browser.grid(row=11, column=0, padx=22, pady=(0, 16), sticky="ew")
+        self._btn_show_browser.grid(row=8, column=0, padx=24, pady=(0, 18), sticky="ew")
         self._btn_show_browser.grid_remove()
 
-        # ── Status satırı ────────────────────────
-        status_row = ctk.CTkFrame(center, fg_color="transparent")
-        status_row.grid(row=r, column=0, sticky="ew", pady=(0, 4)); r += 1
-        status_row.grid_columnconfigure(1, weight=1)
+    # ─────────────────────────────────────────────────────────
+    # ADıM GEÇİŞLERİ
+    # ─────────────────────────────────────────────────────────
 
-        self._dot = ctk.CTkLabel(
-            status_row, text="●",
-            font=("Inter", 11), text_color=DOT_IDLE, width=14,
-        )
-        self._dot.grid(row=0, column=0, padx=(0, 6))
-
-        self._lbl_status = ctk.CTkLabel(
-            status_row, text="Hazır",
-            font=FONT_SMALL, text_color=TEXT_TERTIARY, anchor="w",
-        )
-        self._lbl_status.grid(row=0, column=1, sticky="w")
-
-        # ── Güvenlik notu ────────────────────────
-        ctk.CTkLabel(
-            center,
-            text="🔒  Şifreniz hiçbir zaman diske yazılmaz — sadece oturum süresince bellekte tutulur",
-            font=("Inter", 10),
-            text_color=TEXT_TERTIARY,
-            justify="center",
-            wraplength=500,
-        ).grid(row=r, column=0, pady=(6, 0)); r += 1
-
-        ctk.CTkFrame(self, fg_color=BG_ELEVATED, corner_radius=0, height=1).grid(
-            row=2, column=0, sticky="ew",
-        )
-
-    # ── Beni hatırla ─────────────────────────────────────────
-
-    def _load_remembered(self) -> None:
-        data = load_remembered_user()
-        if not data:
-            return
-        no   = data["student_no"]
-        name = data.get("name", "")
-
-        # Öğrenci numarasını önceden doldur
-        self._entry_no.insert(0, no)
-        self._on_no_change()
-
-        # Welcome bölümünü göster
-        if name:
-            initial = name.strip()[0].upper() if name.strip() else "?"
-            self._avatar_lbl.configure(text=initial)
-            self._lbl_welcome_name.configure(text=name)
-            self._lbl_welcome_email.configure(text=f"{no}@stu.istinye.edu.tr")
-            self._welcome_wrap.grid()
-            self._welcome_sep.grid()
-
-    def _switch_account(self) -> None:
-        """'Farklı hesap' — remember'ı temizle, formu sıfırla."""
-        clear_remembered_user()
-        self._welcome_wrap.grid_remove()
-        self._welcome_sep.grid_remove()
-        self._entry_no.delete(0, "end")
-        self._lbl_email.configure(text="")
-        self._entry_no.configure(border_color=BORDER)
-        self._entry_no.focus()
-
-    # ── Event Handlers ────────────────────────────────────────
-
-    def _on_no_change(self, _event=None) -> None:
-        no = self._entry_no.get().strip()
-        if no:
-            self._lbl_email.configure(text=f"→  {no}@stu.istinye.edu.tr")
-            valid = no.isdigit()
-            self._entry_no.configure(border_color=ACCENT if valid else ERROR)
-        else:
-            self._lbl_email.configure(text="")
-            self._entry_no.configure(border_color=BORDER)
-
-    def _start_login(self) -> None:
-        if self._login_running:
-            return
+    def _validate_step1(self) -> None:
         no = self._entry_no.get().strip()
         if not no:
             self._set_status("Öğrenci numaranızı girin", DOT_ERROR)
@@ -333,21 +392,43 @@ class LoginScreen(ctk.CTkFrame):
             self._set_status("Numara yalnızca rakam içerebilir", DOT_ERROR)
             self._shake(self._entry_no)
             return
+        self._student_no_val = no
+        # Kısa border flash geçiş efekti
+        self._card.configure(border_color=ACCENT)
+        self.after(120, self._card_flash_done)
 
+    def _card_flash_done(self) -> None:
+        self._card.configure(border_color=BORDER)
+        self.after(60, self._build_step2)
+
+    def _go_back(self) -> None:
+        self._card.configure(border_color=ACCENT)
+        self.after(120, lambda: [
+            self._card.configure(border_color=BORDER),
+            self.after(60, self._build_step1),
+        ])
+        self._set_status("Hazır", DOT_IDLE)
+
+    # ─────────────────────────────────────────────────────────
+    # AKSIYON
+    # ─────────────────────────────────────────────────────────
+
+    def _start_login(self) -> None:
+        if self._login_running:
+            return
         pwd = self._entry_pwd.get() or None
         self._entry_pwd.delete(0, "end")
 
         self._login_running = True
-        self._btn_login.configure(state="disabled", text="⏳  Bağlanıyor...")
+        self._btn_main.configure(state="disabled", text="⏳  Bağlanıyor...")
         self._btn_show_browser.grid()
         self._set_status("Tarayıcı başlatılıyor...", DOT_BUSY)
-        threading.Thread(
-            target=self._run_login, args=(no, pwd), daemon=True,
-        ).start()
 
-    def _shake(self, widget) -> None:
-        widget.configure(border_color=ERROR)
-        self.after(800, lambda: widget.configure(border_color=BORDER))
+        threading.Thread(
+            target=self._run_login,
+            args=(self._student_no_val, pwd),
+            daemon=True,
+        ).start()
 
     def _show_browser(self) -> None:
         if self._auth:
@@ -374,14 +455,14 @@ class LoginScreen(ctk.CTkFrame):
 
     def _login_done(self, student_no: str, session) -> None:
         self._login_running = False
-        self._btn_login.configure(state="normal", text="Devam Et  →")
+        self._btn_main.configure(state="normal", text="Giriş Yap  ✓")
         self._btn_show_browser.grid_remove()
         self._set_status("Giriş başarılı!", DOT_OK)
         self._on_login_success(student_no, session)
 
     def _login_error(self, msg: str) -> None:
         self._login_running = False
-        self._btn_login.configure(state="normal", text="Devam Et  →")
+        self._btn_main.configure(state="normal", text="Giriş Yap  ✓")
         self._btn_show_browser.grid_remove()
         self._set_status(f"Hata: {msg}", DOT_ERROR)
 
@@ -389,13 +470,39 @@ class LoginScreen(ctk.CTkFrame):
         self.after(0, lambda: self._set_status(
             "Tarayıcı kapatıldı — tekrar başlatmak için butona tıklayın", DOT_ERROR,
         ))
-        self.after(0, lambda: self._btn_login.configure(
-            state="normal", text="Devam Et  →",
+        self.after(0, lambda: self._btn_main.configure(
+            state="normal", text="Giriş Yap  ✓",
         ))
         self.after(0, self._btn_show_browser.grid_remove)
         self._login_running = False
 
-    # ── Status Helpers ────────────────────────────────────────
+    # ─────────────────────────────────────────────────────────
+    # YARDIMCILAR
+    # ─────────────────────────────────────────────────────────
+
+    def _clear_card(self) -> None:
+        for w in self._card.winfo_children():
+            w.destroy()
+
+    def _switch_account(self) -> None:
+        clear_remembered_user()
+        self._remembered = None
+        self._build_step1()
+
+    def _on_no_change(self, _event=None) -> None:
+        no = self._entry_no.get().strip()
+        if no:
+            self._lbl_email.configure(text=f"→  {no}@stu.istinye.edu.tr")
+            self._entry_no.configure(
+                border_color=ACCENT if no.isdigit() else ERROR,
+            )
+        else:
+            self._lbl_email.configure(text="")
+            self._entry_no.configure(border_color=BORDER)
+
+    def _shake(self, widget) -> None:
+        widget.configure(border_color=ERROR)
+        self.after(800, lambda: widget.configure(border_color=BORDER))
 
     def _set_status_thread(self, msg: str) -> None:
         self.after(0, lambda m=msg: self._set_status(m, DOT_BUSY))
