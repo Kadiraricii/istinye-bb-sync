@@ -46,23 +46,23 @@ SHAREPOINT_DOMAINS = ["sharepoint.com", "microsoftstream.com"]
 VIDEO_QUALITIES    = ["best", "1080", "720", "worst"]
 DEFAULT_QUALITY    = "720"
 
-# ── GUI Renk Paleti (Dark Precision) ─────────────────────────
-BG_BASE      = "#09090b"
-BG_ELEVATED  = "#18181b"
-BG_HOVER     = "#27272a"
-BORDER       = "#3f3f46"
-BORDER_FAINT = "#27272a"
+# ── GUI Renk Paleti (Ocean Dark) ──────────────────────────────
+BG_BASE      = "#02091a"   # derin uzay mavisi
+BG_ELEVATED  = "#071628"   # gece yarısı lacivert
+BG_HOVER     = "#0d2040"   # hover lacivert
+BORDER       = "#163d6e"   # çelik mavi kenarlık
+BORDER_FAINT = "#0b1e38"
 
-TEXT_PRIMARY   = "#fafafa"
-TEXT_SECONDARY = "#a1a1aa"
-TEXT_TERTIARY  = "#71717a"
+TEXT_PRIMARY   = "#dbeafe"   # soğuk beyaz
+TEXT_SECONDARY = "#5b8db8"   # pastel mavi
+TEXT_TERTIARY  = "#2d5070"   # soluk mavi-gri
 
-ACCENT     = "#818cf8"
-ACCENT_BG  = "#1e1b4b"
-SUCCESS    = "#4ade80"
-WARNING    = "#fbbf24"
-ERROR      = "#f87171"
-INFO       = "#60a5fa"
+ACCENT     = "#0ea5e9"   # gökyüzü mavisi (canlı)
+ACCENT_BG  = "#062240"
+SUCCESS    = "#10b981"   # zümrüt yeşili
+WARNING    = "#f59e0b"   # kehribar
+ERROR      = "#f43f5e"   # gül kırmızısı
+INFO       = "#38bdf8"   # açık mavi
 
 # ── GUI Boyutlar ──────────────────────────────────────────────
 WINDOW_WIDTH   = 720
