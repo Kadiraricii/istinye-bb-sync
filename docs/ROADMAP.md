@@ -11,18 +11,18 @@
 
 ---
 
-## Sprint 2 — Login & Auth
-> `auth.py`
+## Sprint 2 — Login & Auth ✅
+> `core/auth.py`
 
-- [ ] Playwright `chromium` headless=False başlatma
-- [ ] Blackboard URL'e gitme, Microsoft SSO yönlendirmesini bekleme
-- [ ] Email alanına `{numara}@stu.istinye.edu.tr` otomatik yazma
-- [ ] Şifre alanını odaklama (kullanıcı kendisi yazar)
-- [ ] Login başarısını URL pattern ile tespit etme (`/ultra/` içeriyorsa)
-- [ ] `BbRouter` ve diğer session cookie'lerini alma
-- [ ] Cookie'leri `requests.Session`'a aktarma
-- [ ] Tarayıcı kapatılınca uyarı + yeniden açma mantığı
-- [ ] Status callback sistemi (GUI'ye durum iletmek için)
+- [x] Playwright `chromium` headless=False başlatma
+- [x] Blackboard URL'e gitme, Microsoft SSO yönlendirmesini bekleme
+- [x] Email alanına `{numara}@stu.istinye.edu.tr` otomatik yazma
+- [x] Şifre alanını odaklama (kullanıcı kendisi yazar)
+- [x] Login başarısını URL pattern ile tespit etme (`/ultra/` içeriyorsa)
+- [x] `BbRouter` ve diğer session cookie'lerini alma
+- [x] Cookie'leri `requests.Session`'a aktarma
+- [x] Tarayıcı kapatılınca uyarı + yeniden açma mantığı
+- [x] Status callback sistemi (GUI'ye durum iletmek için)
 
 ---
 
@@ -169,7 +169,7 @@
 | Sprint | Konu | Durum |
 |--------|------|-------|
 | 1 | Temel yapı | ✅ Tamamlandı |
-| 2 | Auth & Login | ⬜ Bekliyor |
+| 2 | Auth & Login | ✅ Tamamlandı |
 | 3 | Crawler — Dersler | ⬜ Bekliyor |
 | 4 | Crawler — İçerikler | ⬜ Bekliyor |
 | 5 | Downloader | ⬜ Bekliyor |
