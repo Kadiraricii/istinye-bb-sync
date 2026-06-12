@@ -94,8 +94,8 @@ Blackboard'daki her derse tek tek girip dosya indirmek yerine, bu araç tüm der
 
 ```bash
 # Repoyu indir
-git clone https://github.com/kullaniciadi/blackboard-downloader
-cd blackboard-downloader
+git clone https://github.com/Kadiraricii/istinye-bb-sync
+cd istinye-bb-sync
 
 # Kur (tek komut)
 ./setup.sh
