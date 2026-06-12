@@ -11,6 +11,7 @@ import requests
 
 from core.config import (
     DOWNLOAD_CHUNK,
+    LARGE_FILE_MB,
     MAX_RETRIES,
     MIN_FILE_SIZES,
     REQUEST_TIMEOUT,
@@ -61,11 +62,28 @@ class BlackboardDownloader:
 
     async def run(self, courses: dict[str, Course]) -> None:
         """Verilen kurslar için tüm indirme akışını başlatır."""
+        self._check_disk(courses)
         self._semaphore = asyncio.Semaphore(self._filter.concurrent)
         await asyncio.gather(
             *(self._download_course(c) for c in courses.values()),
             return_exceptions=True,
         )
+
+    def _check_disk(self, courses: dict[str, Course]) -> None:
+        from core.state import check_disk_space
+        required = sum(
+            item.size_bytes or 0
+            for c in courses.values()
+            for item in c.items.values()
+            if self._filter.allows_item(item)
+        )
+        ok, free = check_disk_space(self._base_dir, required)
+        if not ok:
+            free_mb  = free / 1_048_576
+            need_mb  = required / 1_048_576
+            self._status(
+                f"⚠ Disk alanı yetersiz — gerekli: {need_mb:.0f} MB, boş: {free_mb:.0f} MB"
+            )
 
     def cancel(self) -> None:
         self._cancelled = True
@@ -142,6 +160,11 @@ class BlackboardDownloader:
     async def _download_file(self, item: Item, course_dir: Path) -> None:
         dest_dir = self._resolve_item_dir(course_dir, item.path_hint)
         dest_dir.mkdir(parents=True, exist_ok=True)
+
+        if item.size_bytes and item.size_bytes > LARGE_FILE_MB * 1_048_576:
+            self._status(
+                f"⚠ Büyük dosya: {item.name} ({item.size_bytes / 1_048_576:.0f} MB)"
+            )
 
         ext      = PurePosixPath(item.name).suffix.lower()
         stem     = PurePosixPath(item.name).stem

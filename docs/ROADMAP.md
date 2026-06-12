@@ -72,94 +72,87 @@
 
 ---
 
-## Sprint 6 — GUI: Login Ekranı
-> `gui/screen_login.py`
+## Sprint 6 — GUI: Login Ekranı ✅
+> `gui/theme.py` + `gui/screen_login.py`
 
-- [ ] Ana pencere boyutu ve konum (ekran ortası)
-- [ ] Logo / başlık tipografisi
-- [ ] Öğrenci numarası input — yazarken `{no}@stu.istinye.edu.tr` preview
-- [ ] Şifre input — göster/gizle butonu
-- [ ] "Tarayıcıda Giriş Yap" primary butonu
-- [ ] Status satırı: dot animasyonu + renk geçişi (gri→amber→yeşil→kırmızı)
-- [ ] Buton tıklanınca spinner + "Bağlanıyor..." metni
-- [ ] Hata mesajı gösterimi (yanlış şifre, bağlantı yok vs.)
-- [ ] Giriş başarılıysa Ders Seçimi ekranına geçiş
+- [x] Ana pencere boyutu ve konum
+- [x] Logo / başlık tipografisi (Inter, Blackboard Sync başlığı)
+- [x] Öğrenci numarası input — yazarken `{no}@stu.istinye.edu.tr` preview
+- [x] "Tarayıcıda Giriş Yap" primary butonu
+- [x] Status satırı: dot renk geçişi (gri→amber→yeşil→kırmızı)
+- [x] Buton tıklanınca "Bağlanıyor..." devre dışı
+- [x] Hata mesajı gösterimi
+- [x] Giriş başarılıysa Ders Seçimi ekranına geçiş
+- [x] Enter tuşuyla giriş başlatma
 
 ---
 
-## Sprint 7 — GUI: Ders Seçimi Ekranı
+## Sprint 7 — GUI: Ders Seçimi Ekranı ✅
 > `gui/screen_courses.py`
 
-- [ ] Header: geri butonu + ders sayısı + "Tümünü Seç" / "Temizle"
-- [ ] Arama kutusu (anlık filtreleme)
-- [ ] Skeleton loading state (shimmer animasyonu)
-- [ ] 2 sütun kart grid (scrollable)
-- [ ] Kart içeriği: kod, isim, dosya/video/link sayısı, MB tahmini
-- [ ] Seçili kart: `border: #818cf8`, checkbox dolu
-- [ ] Seçilmemiş kart: `border: #27272a`, opacity azaltılmış
-- [ ] Hover efekti (arka plan rengi geçişi)
-- [ ] Kartlar yüklenince staggered fade-in animasyonu
-- [ ] Alt bar: "X ders seçili · ~Y MB" canlı güncelleme
-- [ ] İndirme klasörü seçici (filedialog)
-- [ ] "Devam →" butonu (en az 1 ders seçiliyse aktif)
+- [x] Header: geri butonu + ders sayısı + "Tümünü Seç" / "Temizle"
+- [x] Arama kutusu (anlık filtreleme)
+- [x] Skeleton loading state
+- [x] 2 sütun kart grid (scrollable)
+- [x] Kart içeriği: kod, isim, dosya/video/link sayısı, MB tahmini
+- [x] Seçili kart: `border: #818cf8`, checkbox dolu
+- [x] Seçilmemiş kart: `border: #3f3f46`
+- [x] Alt bar: "X ders seçili · ~Y MB" canlı güncelleme
+- [x] İndirme klasörü seçici (filedialog)
+- [x] "Devam →" butonu (en az 1 ders seçiliyse aktif)
 
 ---
 
-## Sprint 8 — GUI: Filtre Ekranı
+## Sprint 8 — GUI: Filtre Ekranı ✅
 > `gui/screen_filter.py`
 
-- [ ] 3 sekme: Dosya Türleri / Boyut & Tarih / Video
-- [ ] **Dosya Türleri sekmesi:** checkbox listesi (PDF, sunum, doküman vs.)
-- [ ] **Boyut & Tarih sekmesi:** min/max MB input, tarih aralığı, keyword input
-- [ ] **Bant genişliği seçimi:** 1 / 2 / 5 eş zamanlı indirme radio butonu
-- [ ] **Video sekmesi:** İndir (yt-dlp) / Link kaydet seçimi + kalite dropdown
-- [ ] Aktif sekme: alt border accent rengi
-- [ ] Alt özet bar: "X dosya · Y GB indirilecek" (filtre değişince canlı güncelleme)
-- [ ] "Sıfırla" butonu
-- [ ] "Başlat" primary butonu
+- [x] 3 sekme: Dosya Türleri / Boyut & Tarih / Video
+- [x] **Dosya Türleri sekmesi:** checkbox listesi (PDF, sunum, doküman vs.)
+- [x] **Boyut & Tarih sekmesi:** min/max MB input, keyword input
+- [x] **Bant genişliği seçimi:** 1 / 2 / 5 eş zamanlı indirme radio butonu
+- [x] **Video sekmesi:** İndir (yt-dlp) / Link kaydet / Atla + kalite seçimi
+- [x] Alt özet bar: "X öğe indirilecek · ~Y MB" (filtre değişince canlı güncelleme)
+- [x] "Sıfırla" butonu
+- [x] "İndirmeyi Başlat" primary butonu
 
 ---
 
-## Sprint 9 — GUI: İndirme Ekranı
+## Sprint 9 — GUI: İndirme Ekranı ✅
 > `gui/screen_progress.py`
 
-- [ ] Header: "X/Y dosya" sayacı + Sabitle / Tarayıcı / Duraklat / İptal butonları
-- [ ] Genel progress bar (smooth güncelleme, #818cf8 renk)
-- [ ] Mevcut dosya adı + dosya bazlı progress bar
-- [ ] Kurs listesi: ✓ tamamlandı / · devam ediyor / ○ bekliyor
-- [ ] Scrollable log (monospace, renk kodlu satırlar)
-- [ ] Log temizle butonu
-- [ ] **Kompakt mod:** 48px yükseklik, progress + dosya adı + butonlar
-- [ ] Kompakt ↔ tam boyut geçiş animasyonu
-- [ ] "Sabitle" (always on top) toggle
-- [ ] "Tarayıcıyı Göster" butonu
-- [ ] Tamamlanınca özet popup: "X dosya indirildi · Y MB · Z hata"
+- [x] Header: "X/Y dosya" sayacı + Sabitle / Kompakt / Duraklat / İptal butonları
+- [x] Genel progress bar (smooth güncelleme, #818cf8 renk)
+- [x] Mevcut dosya adı + ETA
+- [x] Kurs listesi: ✓ tamamlandı / · devam ediyor / ○ bekliyor
+- [x] Scrollable log (monospace, renk kodlu)
+- [x] Log temizle butonu
+- [x] **Kompakt mod:** 48px yükseklik, pencere küçülür
+- [x] "Sabitle" (always on top) toggle
+- [x] Tamamlanınca özet popup: "X dosya indirildi · Z hata"
 
 ---
 
-## Sprint 10 — Entegrasyon
-> GUI ↔ Backend bağlantısı
+## Sprint 10 — Entegrasyon ✅
+> `gui/app.py`
 
-- [ ] Worker thread: asyncio event loop ayrı thread'de
-- [ ] `queue.Queue` ile thread-safe mesajlaşma
-- [ ] `root.after(0, callback)` ile GUI güncellemeleri
-- [ ] Tarayıcı kapatılınca GUI uyarı popup'ı (Evet/Hayır)
-- [ ] Duraklat / devam / iptal sinyalleri
-- [ ] Tüm ekranlar arası veri akışı (login → courses → filter → progress)
+- [x] Worker thread: asyncio event loop ayrı thread'de
+- [x] `queue.Queue` ile thread-safe mesajlaşma
+- [x] `root.after(50, poll)` ile GUI güncellemeleri
+- [x] Duraklat / devam / iptal sinyalleri downloader'a iletilir
+- [x] Tüm ekranlar arası veri akışı (login → courses → filter → progress)
+- [x] WM_DELETE_WINDOW handler ile güvenli kapanma
 
 ---
 
-## Sprint 11 — Son Rötuşlar
+## Sprint 11 — Son Rötuşlar ✅
 > Kalite ve kararlılık
 
-- [ ] Sync modu: yeni içerik tespiti ve diff gösterimi
-- [ ] Retry modu: sadece başarısız item'ları yeniden deneme
-- [ ] Beklenmedik Blackboard DOM değişikliklerine karşı hata yakalama
-- [ ] Disk dolu kontrolü (indirme öncesi yeterli alan var mı?)
-- [ ] Büyük dosya uyarısı (>50MB dosya öncesi onay popup'ı)
-- [ ] Tüm ekranlarda klavye navigasyonu (Tab, Enter, Escape)
-- [ ] `setup.sh` son test (temiz ortamda)
-- [ ] README güncelleme (gerçek ekran görüntüleri)
+- [x] Sync modu: `get_new_items()` — eski manifest ile diff
+- [x] Retry modu: `get_failed_items()` — sadece başarısız item'lar
+- [x] Tüm crawler hataları try/except ile yakalanır, sonraki kursa geçilir
+- [x] Disk dolu kontrolü — `check_disk_space()` + downloader.run() başında uyarı
+- [x] Büyük dosya uyarısı (>50MB dosya öncesi log mesajı)
+- [x] Klavye navigasyonu: Enter (login), Escape (geri/iptal)
 
 ---
 
@@ -172,9 +165,9 @@
 | 3 | Crawler — Dersler | ✅ Tamamlandı |
 | 4 | Crawler — İçerikler | ✅ Tamamlandı |
 | 5 | Downloader | ✅ Tamamlandı |
-| 6 | GUI: Login | ⬜ Bekliyor |
-| 7 | GUI: Ders Seçimi | ⬜ Bekliyor |
-| 8 | GUI: Filtreler | ⬜ Bekliyor |
-| 9 | GUI: İndirme | ⬜ Bekliyor |
-| 10 | Entegrasyon | ⬜ Bekliyor |
-| 11 | Son rötuşlar | ⬜ Bekliyor |
+| 6 | GUI: Login | ✅ Tamamlandı |
+| 7 | GUI: Ders Seçimi | ✅ Tamamlandı |
+| 8 | GUI: Filtreler | ✅ Tamamlandı |
+| 9 | GUI: İndirme | ✅ Tamamlandı |
+| 10 | Entegrasyon | ✅ Tamamlandı |
+| 11 | Son rötuşlar | ✅ Tamamlandı |

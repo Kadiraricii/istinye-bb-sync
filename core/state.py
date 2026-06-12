@@ -116,6 +116,42 @@ def get_pending_items(courses: dict[str, Course]) -> list[Item]:
     return pending
 
 
+def get_failed_items(courses: dict[str, Course]) -> list[Item]:
+    """Başarısız item listesi — retry modu için."""
+    progress = load_progress()
+    return [
+        item
+        for course in courses.values()
+        for item in course.items.values()
+        if progress.get(item.id, {}).get("status") == "failed"
+    ]
+
+
+def get_new_items(
+    courses: dict[str, Course], old_courses: dict[str, Course]
+) -> list[Item]:
+    """Eski manifest'te bulunmayan yeni item'lar — sync modu için."""
+    old_ids = {
+        item_id
+        for c in old_courses.values()
+        for item_id in c.items
+    }
+    return [
+        item
+        for course in courses.values()
+        for item in course.items.values()
+        if item.id not in old_ids
+    ]
+
+
+def check_disk_space(dest_dir: Path, required_bytes: int) -> tuple[bool, int]:
+    """(yeterli, boş_byte) döner."""
+    import shutil
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    free = shutil.disk_usage(dest_dir).free
+    return free >= required_bytes, free
+
+
 def get_stats() -> dict:
     if not PROGRESS_FILE.exists():
         return {"total": 0, "downloaded": 0, "failed": 0, "skipped": 0}
