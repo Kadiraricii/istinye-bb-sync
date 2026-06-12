@@ -314,61 +314,54 @@ class LoginScreen(ctk.CTkFrame):
         no      = self._remembered.get("student_no", "")
         initial = name.strip()[0].upper() if name.strip() else "?"
 
-        # Tıklanabilir kart (BG_HOVER arka plan, hand2 cursor)
+        def _bind(w) -> None:
+            w.configure(cursor="hand2")
+            w.bind("<Button-1>", lambda _: self._quick_login_remembered())
+
+        # ── Tıklanabilir profil kartı ──────────────
         row = ctk.CTkFrame(
             card, fg_color=BG_HOVER, corner_radius=10,
             border_width=1, border_color=BORDER,
         )
         row.grid(row=start_row, column=0, padx=24, pady=(20, 0), sticky="ew")
         row.grid_columnconfigure(1, weight=1)
-        row.configure(cursor="hand2")
-        row.bind("<Button-1>", lambda _: self._quick_login_remembered())
+        _bind(row)
 
-        def _bind(w: ctk.CTkBaseClass) -> None:
-            w.configure(cursor="hand2")
-            w.bind("<Button-1>", lambda _: self._quick_login_remembered())
-
-        # Avatar
         av = ctk.CTkFrame(row, fg_color=ACCENT, corner_radius=20, width=40, height=40)
         av.grid(row=0, column=0, rowspan=2, padx=(14, 0), pady=12)
         av.grid_propagate(False)
-        av_lbl = ctk.CTkLabel(
-            av, text=initial,
-            font=("Inter", 17, "bold"), text_color="#ffffff",
-        )
+        av_lbl = ctk.CTkLabel(av, text=initial, font=("Inter", 17, "bold"), text_color="#ffffff")
         av_lbl.place(relx=0.5, rely=0.5, anchor="center")
         _bind(av); _bind(av_lbl)
 
-        name_lbl = ctk.CTkLabel(
-            row, text=name,
-            font=("Inter", 13, "bold"), text_color=TEXT_PRIMARY, anchor="w",
-        )
+        name_lbl = ctk.CTkLabel(row, text=name, font=("Inter", 13, "bold"), text_color=TEXT_PRIMARY, anchor="w")
         name_lbl.grid(row=0, column=1, padx=(12, 0), pady=(12, 2), sticky="w")
         _bind(name_lbl)
 
-        email_lbl = ctk.CTkLabel(
-            row, text=f"{no}@stu.istinye.edu.tr",
-            font=("Inter", 10), text_color=TEXT_TERTIARY, anchor="w",
-        )
+        email_lbl = ctk.CTkLabel(row, text=f"{no}@stu.istinye.edu.tr", font=("Inter", 10), text_color=TEXT_TERTIARY, anchor="w")
         email_lbl.grid(row=1, column=1, padx=(12, 0), pady=(0, 12), sticky="w")
         _bind(email_lbl)
 
-        # Ok işareti → tıklanabilir olduğunu gösterir
-        arrow = ctk.CTkLabel(row, text="→", font=("Inter", 14), text_color=TEXT_TERTIARY)
-        arrow.grid(row=0, column=2, rowspan=2, padx=(0, 6))
-        _bind(arrow)
+        # Şevron — kartın sağında, tıklanabilirliği ifade eder
+        chev = ctk.CTkLabel(row, text="›", font=("Inter", 20), text_color=TEXT_TERTIARY)
+        chev.grid(row=0, column=2, rowspan=2, padx=(0, 16))
+        _bind(chev)
+
+        # ── "Farklı hesap" — kartın altında ayrı link ──
+        switch_row = ctk.CTkFrame(card, fg_color="transparent")
+        switch_row.grid(row=start_row + 1, column=0, pady=(6, 0), sticky="e", padx=24)
 
         ctk.CTkButton(
-            row, text="Farklı hesap",
+            switch_row, text="Farklı hesap kullan",
             command=self._switch_account,
-            fg_color="transparent", hover_color=BORDER,
+            fg_color="transparent", hover_color="transparent",
             text_color=TEXT_TERTIARY, font=("Inter", 10),
-            corner_radius=5, height=26, width=88,
-        ).grid(row=0, column=3, rowspan=2, padx=(0, 8))
+            corner_radius=0, height=20, width=0,
+        ).pack(side="right")
 
         # Alt çizgi
         ctk.CTkFrame(card, height=1, fg_color=BORDER).grid(
-            row=start_row + 1, column=0, padx=24, pady=(14, 0), sticky="ew",
+            row=start_row + 2, column=0, padx=24, pady=(8, 0), sticky="ew",
         )
 
     # ─────────────────────────────────────────────────────────
@@ -443,9 +436,8 @@ class LoginScreen(ctk.CTkFrame):
         # ── Kısa hint ─────────────────────────────
         ctk.CTkLabel(
             card,
-            text="Girilirse oturum otomatik açılır · Boş bırakırsanız tarayıcıda manuel giriş gerekir",
+            text="Opsiyonel — girilirse oturum otomatik başlatılır.",
             font=("Inter", 10), text_color=TEXT_TERTIARY,
-            wraplength=360,
         ).grid(row=3, column=0, padx=24, pady=(8, 0))
 
         # ── Giriş Yap butonu ──────────────────────
