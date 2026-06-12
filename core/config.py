@@ -6,6 +6,7 @@ DATA_DIR      = BASE_DIR / "data"
 DOWNLOADS_DIR = DATA_DIR / "downloads"
 MANIFEST_FILE = DATA_DIR / "manifest.json"
 PROGRESS_FILE = DATA_DIR / "progress.json"
+REMEMBER_FILE = DATA_DIR / "remember.json"
 
 # ── Blackboard ───────────────────────────────────────────────
 BB_BASE         = "https://istinye.blackboard.com"

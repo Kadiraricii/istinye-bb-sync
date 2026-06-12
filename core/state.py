@@ -6,8 +6,33 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from core.config import DATA_DIR, DOWNLOADS_DIR, MANIFEST_FILE, PROGRESS_FILE
+from core.config import DATA_DIR, DOWNLOADS_DIR, MANIFEST_FILE, PROGRESS_FILE, REMEMBER_FILE
 from core.models import Course, Item, DownloadStatus, CourseStatus
+
+
+# ── Beni Hatırla ─────────────────────────────────────────────
+
+def save_remembered_user(student_no: str, name: str) -> None:
+    ensure_dirs()
+    REMEMBER_FILE.write_text(
+        json.dumps({"student_no": student_no, "name": name}, ensure_ascii=False),
+    )
+
+
+def load_remembered_user() -> Optional[dict]:
+    if not REMEMBER_FILE.exists():
+        return None
+    try:
+        data = json.loads(REMEMBER_FILE.read_text())
+        if data.get("student_no"):
+            return data
+    except Exception:
+        pass
+    return None
+
+
+def clear_remembered_user() -> None:
+    REMEMBER_FILE.unlink(missing_ok=True)
 
 
 def ensure_dirs() -> None:

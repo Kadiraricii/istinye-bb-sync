@@ -6,6 +6,7 @@ from typing import Callable, Optional
 import customtkinter as ctk
 
 from core.auth import BlackboardAuth
+from core.state import load_remembered_user, clear_remembered_user
 from gui.theme import (
     ACCENT, BG_BASE, BG_ELEVATED, BG_HOVER, BORDER,
     DOT_BUSY, DOT_ERROR, DOT_IDLE, DOT_OK,
@@ -16,7 +17,7 @@ from gui.theme import (
 
 
 class LoginScreen(ctk.CTkFrame):
-    """Login ekranı — öğrenci numarası + isteğe bağlı şifre."""
+    """Login ekranı — beni hatırla + isteğe bağlı şifre."""
 
     def __init__(
         self,
@@ -30,6 +31,7 @@ class LoginScreen(ctk.CTkFrame):
         self._login_running    = False
         self._auth: Optional[BlackboardAuth] = None
         self._build()
+        self._load_remembered()
 
     # ── Layout ────────────────────────────────────────────────
 
@@ -91,11 +93,58 @@ class LoginScreen(ctk.CTkFrame):
         card.grid(row=r, column=0, sticky="ew", pady=(0, 14)); r += 1
         card.grid_columnconfigure(0, weight=1)
 
+        # ── Hoş geldin bölümü (remembered user) ──────────────
+        # Gizli başlar; _load_remembered() açar
+        self._welcome_wrap = ctk.CTkFrame(card, fg_color="transparent")
+        self._welcome_wrap.grid(row=0, column=0, padx=22, pady=(18, 0), sticky="ew")
+        self._welcome_wrap.grid_columnconfigure(1, weight=1)
+        self._welcome_wrap.grid_remove()
+
+        # Avatar dairesi
+        self._avatar_box = ctk.CTkFrame(
+            self._welcome_wrap, fg_color=ACCENT, corner_radius=20, width=40, height=40,
+        )
+        self._avatar_box.grid(row=0, column=0, rowspan=2)
+        self._avatar_box.grid_propagate(False)
+        self._avatar_lbl = ctk.CTkLabel(
+            self._avatar_box, text="?",
+            font=("Inter", 18, "bold"), text_color="#ffffff",
+        )
+        self._avatar_lbl.place(relx=0.5, rely=0.5, anchor="center")
+
+        # İsim + numara
+        self._lbl_welcome_name = ctk.CTkLabel(
+            self._welcome_wrap, text="",
+            font=("Inter", 13, "bold"), text_color=TEXT_PRIMARY, anchor="w",
+        )
+        self._lbl_welcome_name.grid(row=0, column=1, padx=(12, 0), sticky="w")
+
+        self._lbl_welcome_email = ctk.CTkLabel(
+            self._welcome_wrap, text="",
+            font=("Inter", 11), text_color=TEXT_TERTIARY, anchor="w",
+        )
+        self._lbl_welcome_email.grid(row=1, column=1, padx=(12, 0), sticky="w")
+
+        # "Farklı hesap" linki
+        ctk.CTkButton(
+            self._welcome_wrap,
+            text="Farklı hesap",
+            command=self._switch_account,
+            fg_color="transparent", hover_color=BG_HOVER,
+            text_color=TEXT_TERTIARY, font=("Inter", 10),
+            corner_radius=4, height=22, width=90,
+        ).grid(row=0, column=2, rowspan=2, padx=(4, 0))
+
+        # Separator (welcome altı, gizli başlar)
+        self._welcome_sep = ctk.CTkFrame(card, height=1, fg_color=BORDER)
+        self._welcome_sep.grid(row=1, column=0, padx=22, pady=(14, 0), sticky="ew")
+        self._welcome_sep.grid_remove()
+
         # ── Öğrenci Numarası ─────────────────────
         ctk.CTkLabel(
             card, text="Öğrenci Numarası",
             font=("Inter", 11, "bold"), text_color=TEXT_SECONDARY, anchor="w",
-        ).grid(row=0, column=0, padx=22, pady=(22, 4), sticky="w")
+        ).grid(row=2, column=0, padx=22, pady=(18, 4), sticky="w")
 
         self._entry_no = ctk.CTkEntry(
             card,
@@ -104,7 +153,7 @@ class LoginScreen(ctk.CTkFrame):
             text_color=TEXT_PRIMARY, placeholder_text_color=TEXT_TERTIARY,
             corner_radius=8, font=FONT_BODY, height=42,
         )
-        self._entry_no.grid(row=1, column=0, padx=22, sticky="ew")
+        self._entry_no.grid(row=3, column=0, padx=22, sticky="ew")
         self._entry_no.bind("<KeyRelease>", self._on_no_change)
         self._entry_no.bind("<Return>",     lambda _: self._entry_pwd.focus())
 
@@ -112,16 +161,16 @@ class LoginScreen(ctk.CTkFrame):
             card, text="",
             font=("Inter", 11), text_color=TEXT_TERTIARY, anchor="w",
         )
-        self._lbl_email.grid(row=2, column=0, padx=22, pady=(5, 0), sticky="w")
+        self._lbl_email.grid(row=4, column=0, padx=22, pady=(5, 0), sticky="w")
 
         # ── Ayırıcı ──────────────────────────────
         ctk.CTkFrame(card, height=1, fg_color=BORDER).grid(
-            row=3, column=0, padx=22, pady=(16, 0), sticky="ew",
+            row=5, column=0, padx=22, pady=(16, 0), sticky="ew",
         )
 
         # ── Şifre (isteğe bağlı) ─────────────────
         pwd_label_row = ctk.CTkFrame(card, fg_color="transparent")
-        pwd_label_row.grid(row=4, column=0, padx=22, pady=(14, 4), sticky="w")
+        pwd_label_row.grid(row=6, column=0, padx=22, pady=(14, 4), sticky="w")
 
         ctk.CTkLabel(
             pwd_label_row, text="Şifre",
@@ -145,19 +194,17 @@ class LoginScreen(ctk.CTkFrame):
             text_color=TEXT_PRIMARY, placeholder_text_color=TEXT_TERTIARY,
             corner_radius=8, font=FONT_BODY, height=42,
         )
-        self._entry_pwd.grid(row=5, column=0, padx=22, sticky="ew")
+        self._entry_pwd.grid(row=7, column=0, padx=22, sticky="ew")
         self._entry_pwd.bind("<Return>", lambda _: self._start_login())
 
         # ── Bilgi notu ───────────────────────────
         note_wrap = ctk.CTkFrame(card, fg_color="transparent")
-        note_wrap.grid(row=6, column=0, padx=22, pady=(10, 0), sticky="ew")
+        note_wrap.grid(row=8, column=0, padx=22, pady=(10, 0), sticky="ew")
         note_wrap.grid_columnconfigure(1, weight=1)
 
-        # Sol accent çizgisi
         ctk.CTkFrame(note_wrap, fg_color=ACCENT, width=2, corner_radius=2).grid(
             row=0, column=0, sticky="ns", padx=(0, 8),
         )
-
         ctk.CTkLabel(
             note_wrap,
             text=(
@@ -166,14 +213,13 @@ class LoginScreen(ctk.CTkFrame):
             ),
             font=("Inter", 10),
             text_color=TEXT_TERTIARY,
-            justify="left",
-            anchor="w",
-            wraplength=340,
+            justify="left", anchor="w",
+            wraplength=360,
         ).grid(row=0, column=1, sticky="w")
 
         # ── Ayırıcı ──────────────────────────────
         ctk.CTkFrame(card, height=1, fg_color=BORDER).grid(
-            row=7, column=0, padx=22, pady=(14, 0), sticky="ew",
+            row=9, column=0, padx=22, pady=(14, 0), sticky="ew",
         )
 
         # ── Devam Et butonu ──────────────────────
@@ -181,16 +227,13 @@ class LoginScreen(ctk.CTkFrame):
             card,
             text="Devam Et  →",
             command=self._start_login,
-            fg_color=ACCENT,
-            hover_color="#6366f1",
-            text_color="#ffffff",
-            corner_radius=8,
-            font=("Inter", 13, "bold"),
-            height=44,
+            fg_color=ACCENT, hover_color="#6366f1",
+            text_color="#ffffff", corner_radius=8,
+            font=("Inter", 13, "bold"), height=44,
         )
-        self._btn_login.grid(row=8, column=0, padx=22, pady=(14, 10), sticky="ew")
+        self._btn_login.grid(row=10, column=0, padx=22, pady=(14, 10), sticky="ew")
 
-        # ── "Tarayıcıyı Göster" (login sırasında görünür) ──
+        # ── Tarayıcıyı Göster (login sırasında görünür) ──────
         self._btn_show_browser = ctk.CTkButton(
             card,
             text="🔍  Tarayıcıyı Göster",
@@ -200,7 +243,7 @@ class LoginScreen(ctk.CTkFrame):
             font=("Inter", 12), height=34,
             border_width=1, border_color=BORDER,
         )
-        self._btn_show_browser.grid(row=9, column=0, padx=22, pady=(0, 16), sticky="ew")
+        self._btn_show_browser.grid(row=11, column=0, padx=22, pady=(0, 16), sticky="ew")
         self._btn_show_browser.grid_remove()
 
         # ── Status satırı ────────────────────────
@@ -230,10 +273,41 @@ class LoginScreen(ctk.CTkFrame):
             wraplength=500,
         ).grid(row=r, column=0, pady=(6, 0)); r += 1
 
-        # ── Alt çizgi ────────────────────────────
         ctk.CTkFrame(self, fg_color=BG_ELEVATED, corner_radius=0, height=1).grid(
             row=2, column=0, sticky="ew",
         )
+
+    # ── Beni hatırla ─────────────────────────────────────────
+
+    def _load_remembered(self) -> None:
+        data = load_remembered_user()
+        if not data:
+            return
+        no   = data["student_no"]
+        name = data.get("name", "")
+
+        # Öğrenci numarasını önceden doldur
+        self._entry_no.insert(0, no)
+        self._on_no_change()
+
+        # Welcome bölümünü göster
+        if name:
+            initial = name.strip()[0].upper() if name.strip() else "?"
+            self._avatar_lbl.configure(text=initial)
+            self._lbl_welcome_name.configure(text=name)
+            self._lbl_welcome_email.configure(text=f"{no}@stu.istinye.edu.tr")
+            self._welcome_wrap.grid()
+            self._welcome_sep.grid()
+
+    def _switch_account(self) -> None:
+        """'Farklı hesap' — remember'ı temizle, formu sıfırla."""
+        clear_remembered_user()
+        self._welcome_wrap.grid_remove()
+        self._welcome_sep.grid_remove()
+        self._entry_no.delete(0, "end")
+        self._lbl_email.configure(text="")
+        self._entry_no.configure(border_color=BORDER)
+        self._entry_no.focus()
 
     # ── Event Handlers ────────────────────────────────────────
 
@@ -260,7 +334,6 @@ class LoginScreen(ctk.CTkFrame):
             self._shake(self._entry_no)
             return
 
-        # Şifre — isteğe bağlı; okunduktan hemen sonra field'dan silinir
         pwd = self._entry_pwd.get() or None
         self._entry_pwd.delete(0, "end")
 

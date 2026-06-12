@@ -11,6 +11,7 @@ import requests
 
 from core.config import WINDOW_HEIGHT, WINDOW_WIDTH
 from core.crawler import BlackboardCrawler, fetch_user_name
+from core.state import save_remembered_user
 from core.downloader import BlackboardDownloader
 from core.models import Course, DownloadFilter, Item
 from gui.screen_courses import CoursesScreen
@@ -125,6 +126,7 @@ class App:
         import threading
         def _fetch():
             self._student_name = fetch_user_name(session)
+            save_remembered_user(student_no, self._student_name)
             self._root.after(0, self._show_courses)
         threading.Thread(target=_fetch, daemon=True).start()
 
