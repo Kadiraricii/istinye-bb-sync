@@ -34,7 +34,7 @@ Blackboard'daki her derse tek tek girip dosya indirmek yerine, bu araç tüm der
 - Dosya türüne göre (PDF, video, resim vs.)
 - Boyut aralığına göre (min–max MB)
 - Tarihe göre (belirli tarihten sonra eklenenler)
-- Dosya adında anahtar kelimeye gö
+- Dosya adında anahtar kelimeye göre
 - İndirme öncesi özet: "94 dosya · 1.2 GB"
 
 **Arayüz**
