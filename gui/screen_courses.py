@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 from tkinter import filedialog
 from typing import Callable
@@ -13,6 +14,19 @@ from gui.theme import (
     FONT_BODY, FONT_HEADING, FONT_SMALL,
     TEXT_PRIMARY, TEXT_SECONDARY, TEXT_TERTIARY,
 )
+
+
+def _greeting(name: str) -> str:
+    hour = datetime.now().hour
+    if 6 <= hour < 12:
+        prefix = "Günaydın"
+    elif 12 <= hour < 17:
+        prefix = "İyi günler"
+    elif 17 <= hour < 22:
+        prefix = "İyi akşamlar"
+    else:
+        prefix = "İyi geceler"
+    return f"{prefix}, {name} 👋" if name else f"{prefix} 👋"
 
 _DEFAULT_DIR = Path.home() / "Downloads" / "Blackboard"
 
@@ -49,7 +63,6 @@ class CoursesScreen(ctk.CTkFrame):
 
     def _build(self) -> None:
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(3, weight=1)
 
         # ── Header ──────────────────────────────
         hdr = ctk.CTkFrame(self, fg_color=BG_ELEVATED, corner_radius=0, height=56)
@@ -76,9 +89,19 @@ class CoursesScreen(ctk.CTkFrame):
         ctk.CTkButton(btn_box, text="Tümünü Seç", command=self._select_all, **BTN_GHOST).pack(side="left", padx=2)
         ctk.CTkButton(btn_box, text="Temizle",     command=self._clear_all,  **BTN_GHOST).pack(side="left", padx=2)
 
+        # ── Karşılama satırı ────────────────────
+        self._lbl_greeting = ctk.CTkLabel(
+            self,
+            text="",
+            font=("Inter", 13),
+            text_color=TEXT_SECONDARY,
+            anchor="w",
+        )
+        self._lbl_greeting.grid(row=2, column=0, sticky="w", padx=20, pady=(8, 0))
+
         # ── Arama + dönem filtresi ───────────────
         toolbar = ctk.CTkFrame(self, fg_color=BG_BASE)
-        toolbar.grid(row=1, column=0, sticky="ew", padx=16, pady=(12, 0))
+        toolbar.grid(row=3, column=0, sticky="ew", padx=16, pady=(8, 0))
         toolbar.grid_columnconfigure(0, weight=1)
 
         self._entry_search = ctk.CTkEntry(
@@ -113,14 +136,15 @@ class CoursesScreen(ctk.CTkFrame):
             scrollbar_button_color=BORDER,
             scrollbar_button_hover_color=BG_HOVER,
         )
-        self._scroll.grid(row=3, column=0, sticky="nsew", padx=16, pady=10)
+        self._scroll.grid(row=4, column=0, sticky="nsew", padx=16, pady=8)
         self._scroll.grid_columnconfigure((0, 1), weight=1)
+        self.grid_rowconfigure(4, weight=1)
 
         self._show_skeleton()
 
         # ── Footer ──────────────────────────────
         footer = ctk.CTkFrame(self, fg_color=BG_ELEVATED, corner_radius=0, height=58)
-        footer.grid(row=4, column=0, sticky="ew")
+        footer.grid(row=5, column=0, sticky="ew")
         footer.grid_columnconfigure(1, weight=1)
         footer.grid_propagate(False)
 
@@ -149,6 +173,9 @@ class CoursesScreen(ctk.CTkFrame):
         self._btn_continue.grid(row=0, column=2, padx=12, pady=9)
 
     # ── Public API ────────────────────────────────────────────
+
+    def set_student_name(self, name: str) -> None:
+        self._lbl_greeting.configure(text=_greeting(name))
 
     def load_courses(self, courses: dict[str, Course]) -> None:
         self._all_courses = courses

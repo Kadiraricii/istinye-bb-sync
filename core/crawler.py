@@ -26,6 +26,21 @@ from core.models import (
 from core.state import save_manifest, update_course_status
 
 
+def fetch_user_name(session: requests.Session) -> str:
+    """Giriş yapan kullanıcının adını Blackboard'dan çeker."""
+    try:
+        resp = session.get(
+            f"{BB_API}/users/me?fields=name.given,name.family",
+            timeout=REQUEST_TIMEOUT,
+        )
+        if resp.status_code == 200:
+            name = resp.json().get("name", {})
+            return name.get("given", "").strip() or name.get("family", "").strip()
+    except Exception:
+        pass
+    return ""
+
+
 class BlackboardCrawler:
     """
     Blackboard REST API üzerinden ders ve içerik keşfi.

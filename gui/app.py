@@ -10,7 +10,7 @@ import customtkinter as ctk
 import requests
 
 from core.config import WINDOW_HEIGHT, WINDOW_WIDTH
-from core.crawler import BlackboardCrawler
+from core.crawler import BlackboardCrawler, fetch_user_name
 from core.downloader import BlackboardDownloader
 from core.models import Course, DownloadFilter, Item
 from gui.screen_courses import CoursesScreen
@@ -50,9 +50,10 @@ class App:
         y  = max(0, (sh - WINDOW_HEIGHT) // 4)
         self._root.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}+{x}+{y}")
 
-        self._session:  Optional[requests.Session] = None
-        self._courses:  dict[str, Course] = {}
-        self._selected: dict[str, Course] = {}
+        self._session:    Optional[requests.Session] = None
+        self._courses:    dict[str, Course] = {}
+        self._selected:   dict[str, Course] = {}
+        self._student_name: str = ""
         self._dest_dir: Path = Path.home() / "Downloads" / "Blackboard"
         self._dl_filter: Optional[DownloadFilter] = None
         self._downloader: Optional[BlackboardDownloader] = None
@@ -85,6 +86,7 @@ class App:
             on_back=self._show_login,
         )
         self._swap_screen(screen)
+        screen.set_student_name(self._student_name)
         screen.set_loading(True)
         self._run_async(self._async_discover_courses(screen))
 
@@ -117,9 +119,14 @@ class App:
     # ── Event Handlers ────────────────────────────────────────
 
     def _on_login_success(self, student_no: str, session: requests.Session) -> None:
-        self._student_no = student_no
-        self._session    = session
-        self._show_courses()
+        self._student_no  = student_no
+        self._session     = session
+        # Adı arka planda çek, sonra kurs ekranına geç
+        import threading
+        def _fetch():
+            self._student_name = fetch_user_name(session)
+            self._root.after(0, self._show_courses)
+        threading.Thread(target=_fetch, daemon=True).start()
 
     def _on_courses_continue(
         self, selected: dict[str, Course], dest_dir: Path
