@@ -259,4 +259,8 @@ class App:
     def _on_close(self) -> None:
         if self._downloader:
             self._downloader.cancel()
+        # Login ekranından auth referansı varsa profil klasörünü temizle
+        screen = self._current_screen
+        if isinstance(screen, LoginScreen) and hasattr(screen, "_auth") and screen._auth:
+            screen._auth.cleanup()
         self._root.destroy()

@@ -5,6 +5,7 @@ from typing import Callable, Optional
 
 import customtkinter as ctk
 
+from core.auth import BlackboardAuth
 from gui.theme import (
     ACCENT, BG_BASE, BG_ELEVATED, BG_HOVER, BORDER,
     DOT_BUSY, DOT_ERROR, DOT_IDLE, DOT_OK,
@@ -27,6 +28,7 @@ class LoginScreen(ctk.CTkFrame):
         self._on_login_success = on_login_success
         self._on_status_ext    = on_status
         self._login_running    = False
+        self._auth: Optional[BlackboardAuth] = None
         self._build()
 
     # ── Layout ────────────────────────────────────────────────
@@ -147,7 +149,25 @@ class LoginScreen(ctk.CTkFrame):
             font=("Inter", 13, "bold"),
             height=44,
         )
-        self._btn_login.grid(row=4, column=0, padx=20, pady=(14, 20), sticky="ew")
+        self._btn_login.grid(row=4, column=0, padx=20, pady=(14, 10), sticky="ew")
+
+        # "Tarayıcıyı Göster" butonu — sadece login devam ederken görünür
+        self._btn_show_browser = ctk.CTkButton(
+            card,
+            text="🔍  Tarayıcıyı Göster",
+            command=self._show_browser,
+            fg_color="transparent",
+            hover_color=BG_HOVER,
+            text_color=ACCENT,
+            corner_radius=8,
+            font=("Inter", 12),
+            height=34,
+            border_width=1,
+            border_color=BORDER,
+        )
+        # Başlangıçta gizli — grid ile yönetilir
+        self._btn_show_browser.grid(row=5, column=0, padx=20, pady=(0, 14), sticky="ew")
+        self._btn_show_browser.grid_remove()
 
         # ── Status satırı ────────────────────────
         status_row = ctk.CTkFrame(center, fg_color="transparent")
@@ -186,7 +206,6 @@ class LoginScreen(ctk.CTkFrame):
         no = self._entry_no.get().strip()
         if no:
             self._lbl_email.configure(text=f"→  {no}@stu.istinye.edu.tr")
-            # entry border rengi: geçerli numara = accent, değil = default
             valid = no.isdigit()
             self._entry_no.configure(
                 border_color=ACCENT if valid else ERROR,
@@ -210,23 +229,26 @@ class LoginScreen(ctk.CTkFrame):
 
         self._login_running = True
         self._btn_login.configure(state="disabled", text="⏳  Bağlanıyor...")
+        self._btn_show_browser.grid()          # tarayıcı açılınca göster
         self._set_status("Tarayıcı başlatılıyor...", DOT_BUSY)
         threading.Thread(target=self._run_login, args=(no,), daemon=True).start()
 
     def _shake_entry(self) -> None:
-        """Hatalı girişte entry'yi kısa süre kırmızıya boyar."""
         self._entry_no.configure(border_color=ERROR)
         self.after(800, lambda: self._entry_no.configure(border_color=BORDER))
 
+    def _show_browser(self) -> None:
+        """Playwright tarayıcı penceresini öne çeker."""
+        if self._auth:
+            self._auth.bring_to_front_sync()
+
     def _run_login(self, student_no: str) -> None:
         import asyncio
-        from core.auth import BlackboardAuth
-
-        auth = BlackboardAuth()
+        self._auth = BlackboardAuth()
         loop = asyncio.new_event_loop()
         try:
             session = loop.run_until_complete(
-                auth.login(
+                self._auth.login(
                     student_no,
                     on_status=self._set_status_thread,
                     on_browser_closed=self._handle_browser_closed,
@@ -241,12 +263,14 @@ class LoginScreen(ctk.CTkFrame):
     def _login_done(self, student_no: str, session) -> None:
         self._login_running = False
         self._btn_login.configure(state="normal", text="🌐  Tarayıcıda Giriş Yap")
+        self._btn_show_browser.grid_remove()
         self._set_status("Giriş başarılı!", DOT_OK)
         self._on_login_success(student_no, session)
 
     def _login_error(self, msg: str) -> None:
         self._login_running = False
         self._btn_login.configure(state="normal", text="🌐  Tarayıcıda Giriş Yap")
+        self._btn_show_browser.grid_remove()
         self._set_status(f"Hata: {msg}", DOT_ERROR)
 
     def _handle_browser_closed(self) -> None:
@@ -256,6 +280,7 @@ class LoginScreen(ctk.CTkFrame):
         self.after(0, lambda: self._btn_login.configure(
             state="normal", text="🌐  Tarayıcıda Giriş Yap",
         ))
+        self.after(0, self._btn_show_browser.grid_remove)
         self._login_running = False
 
     # ── Status Helpers ────────────────────────────────────────
