@@ -39,7 +39,7 @@ class ProgressScreen(ctk.CTkFrame):
 
         self._paused    = False
         self._compact   = False
-        self._on_top    = False
+        self._on_top    = True   # App her zaman üstte başlatır
         self._done      = 0
         self._total     = 0
         self._start_ts  = time.time()
@@ -68,7 +68,7 @@ class ProgressScreen(ctk.CTkFrame):
         btn_box = ctk.CTkFrame(hdr, fg_color="transparent")
         btn_box.grid(row=0, column=2, padx=8)
 
-        self._btn_top = ctk.CTkButton(btn_box, text="📌 Sabitle", command=self._toggle_top, **BTN_GHOST)
+        self._btn_top = ctk.CTkButton(btn_box, text="📌 Sabitlendi", command=self._toggle_top, **BTN_GHOST)
         self._btn_top.pack(side="left", padx=2)
 
         self._btn_compact = ctk.CTkButton(btn_box, text="⬛ Kompakt", command=self._toggle_compact, **BTN_GHOST)

@@ -36,11 +36,19 @@ class App:
 
         self._root = ctk.CTk()
         self._root.title("Blackboard Sync")
-        self._root.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
         self._root.resizable(False, True)
         self._root.configure(fg_color=BG_BASE)
         self._root.protocol("WM_DELETE_WINDOW", self._on_close)
         self._root.bind("<Escape>", self._on_escape)
+
+        # Tarayıcı açılınca arka plana gitmemesi için her zaman üstte
+        self._root.attributes("-topmost", True)
+        self._root.update_idletasks()
+        sw = self._root.winfo_screenwidth()
+        sh = self._root.winfo_screenheight()
+        x  = sw - WINDOW_WIDTH - 24
+        y  = max(0, (sh - WINDOW_HEIGHT) // 4)
+        self._root.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}+{x}+{y}")
 
         self._session:  Optional[requests.Session] = None
         self._courses:  dict[str, Course] = {}

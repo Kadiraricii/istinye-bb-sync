@@ -2,10 +2,14 @@
 .venv/
 
 # Runtime data (personal)
+data/
+core/data/
 data/downloads/
 data/progress.json
 data/manifest.json
 data/*.json
+core/data/*.json
+core/data/downloads/
 
 # Python
 __pycache__/
