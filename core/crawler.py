@@ -98,6 +98,7 @@ class BlackboardCrawler:
         try:
             items = self._crawl_contents(course.id, parent_hint="")
             course.items = {item.id: item for item in items}
+            course.instructors = self._get_instructors(course.id)
             course.status = CourseStatus.CRAWLED
             all_courses[course.course_code or course.id] = course
             save_manifest(all_courses)
@@ -176,6 +177,27 @@ class BlackboardCrawler:
             url = self._next_page(data)
 
         return items
+
+    def _get_instructors(self, course_id: str) -> list[str]:
+        """Kursun öğretim görevlisi adlarını çeker."""
+        url  = (
+            f"{BB_API}/courses/{course_id}/users"
+            "?role=Instructor&limit=10"
+            "&fields=user.name.given,user.name.family,courseRoleId"
+        )
+        data = self._get(url)
+        if not data:
+            return []
+        names = []
+        for entry in data.get("results", []):
+            user = entry.get("user", {})
+            name = user.get("name", {})
+            given  = name.get("given", "").strip()
+            family = name.get("family", "").strip()
+            full   = f"{given} {family}".strip()
+            if full:
+                names.append(full)
+        return names
 
     def _get_attachments(self, course_id: str, content_id: str) -> list[dict]:
         """Bir içeriğin dosya attachment'larını çeker."""

@@ -105,7 +105,37 @@ class Course:
     url:         str
     course_code: str          = ""
     status:      CourseStatus = CourseStatus.DISCOVERED
-    items:       dict         = field(default_factory=dict)  # item_id → Item
+    items:       dict         = field(default_factory=dict)   # item_id → Item
+    instructors: list         = field(default_factory=list)   # ["Ad Soyad", ...]
+
+    # ── Derived fields ────────────────────────────────────────
+
+    @property
+    def friendly_code(self) -> str:
+        """'BIL210 - Ders Adı' → 'BIL210'"""
+        return self.name.split(" - ")[0].strip() if " - " in self.name else ""
+
+    @property
+    def friendly_title(self) -> str:
+        """'BIL210 - Ders Adı (1)' → 'Ders Adı'"""
+        import re
+        if " - " in self.name:
+            title = " - ".join(self.name.split(" - ")[1:]).strip()
+            return re.sub(r"\s*\(\d+\)\s*$", "", title).strip()
+        return self.name
+
+    @property
+    def semester(self) -> str:
+        """'2025-2026-2-10094-1' → 'Bahar 2025-2026'"""
+        parts = self.course_code.split("-")
+        if len(parts) >= 3 and parts[0].isdigit() and parts[1].isdigit():
+            sem_map = {"1": "Güz", "2": "Bahar", "3": "Yaz"}
+            label = sem_map.get(parts[2], "")
+            if label:
+                return f"{label} {parts[0]}-{parts[1]}"
+        return ""
+
+    # ── Counts ────────────────────────────────────────────────
 
     @property
     def file_count(self) -> int:
@@ -130,6 +160,8 @@ class Course:
     def total_size_bytes(self) -> int:
         return sum(i.size_bytes or 0 for i in self.items.values())
 
+    # ── Serialisation ─────────────────────────────────────────
+
     def to_dict(self) -> dict:
         return {
             "id":          self.id,
@@ -137,6 +169,7 @@ class Course:
             "url":         self.url,
             "course_code": self.course_code,
             "status":      self.status.value,
+            "instructors": self.instructors,
             "items":       {k: v.to_dict() for k, v in self.items.items()},
         }
 
@@ -148,6 +181,7 @@ class Course:
             url=d["url"],
             course_code=d.get("course_code", ""),
             status=CourseStatus(d.get("status", "discovered")),
+            instructors=d.get("instructors", []),
         )
         for item_id, item_data in d.get("items", {}).items():
             course.items[item_id] = Item.from_dict(item_data)
