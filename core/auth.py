@@ -43,6 +43,7 @@ class BlackboardAuth:
         self._page:     Optional[Page]           = None
         self._session:  Optional[requests.Session] = None
         self._loop:     Optional[asyncio.AbstractEventLoop] = None
+        self._password: Optional[str] = None   # bellekte tutulur, kullanıldıktan sonra silinir
         self._on_status:         Optional[Callable[[str], None]] = None
         self._on_browser_closed: Optional[Callable[[], None]]   = None
         # Geçici profil — aynı oturumda tarayıcı kapansa Microsoft login korunur
@@ -53,12 +54,14 @@ class BlackboardAuth:
     async def login(
         self,
         student_no: str,
+        password: Optional[str] = None,
         on_status: Optional[Callable[[str], None]] = None,
         on_browser_closed: Optional[Callable[[], None]] = None,
     ) -> requests.Session:
         self._on_status         = on_status
         self._on_browser_closed = on_browser_closed
         self._loop              = asyncio.get_event_loop()
+        self._password          = password
 
         self._status("Tarayıcı başlatılıyor...")
         await self._launch_browser()
@@ -168,8 +171,24 @@ class BlackboardAuth:
             await self._page.locator(_MS_EMAIL_SEL).first.fill(email)
             self._status(f"Email girildi: {email}")
             await self._page.locator(_MS_SUBMIT_SEL).first.click()
-            self._status("Şifre bekleniyor (tarayıcıya girin)...")
+
+            if self._password:
+                try:
+                    # Şifre alanı çıkana kadar bekle
+                    await self._page.wait_for_selector(
+                        _MS_PASSWORD_SEL, timeout=15_000
+                    )
+                    await self._page.locator(_MS_PASSWORD_SEL).first.fill(self._password)
+                    self._status("Şifre girildi, giriş bekleniyor...")
+                    self._password = None  # bellekten hemen sil
+                    await self._page.locator(_MS_SUBMIT_SEL).first.click()
+                except Exception:
+                    self._password = None
+                    self._status("Şifre alanı bulunamadı — lütfen tarayıcıda girin")
+            else:
+                self._status("Şifre bekleniyor (tarayıcıya girin)...")
         except Exception:
+            self._password = None
             self._status("Email alanı bulunamadı — lütfen tarayıcıda kendiniz girin")
 
     async def _fill_blackboard_login(self, email: str) -> None:
@@ -178,9 +197,16 @@ class BlackboardAuth:
                 _BB_USER_SEL, timeout=REQUEST_TIMEOUT * 1000
             )
             await self._page.locator(_BB_USER_SEL).first.fill(email)
-            await self._page.locator(_BB_PASS_SEL).first.focus()
-            self._status("Şifre bekleniyor (tarayıcıda girin)...")
+            if self._password:
+                await self._page.locator(_BB_PASS_SEL).first.fill(self._password)
+                self._password = None
+                self._status("Bilgiler girildi, giriş bekleniyor...")
+                await self._page.locator(_BB_SUBMIT_SEL).first.click()
+            else:
+                await self._page.locator(_BB_PASS_SEL).first.focus()
+                self._status("Şifre bekleniyor (tarayıcıda girin)...")
         except Exception:
+            self._password = None
             self._status("Giriş formu bulunamadı — lütfen tarayıcıda kendiniz girin")
 
     async def _wait_for_dashboard(self) -> None:
