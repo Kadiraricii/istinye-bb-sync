@@ -20,7 +20,7 @@ FONT_MONO    = ("JetBrains Mono", 11)
 # ── Widget defaults (dicts for ctk **kwargs) ──────────────────
 BTN_PRIMARY = dict(
     fg_color=ACCENT,
-    hover_color="#6366f1",
+    hover_color="#0284c7",
     text_color="#ffffff",
     corner_radius=CORNER_RADIUS,
     font=FONT_BODY,
