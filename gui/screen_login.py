@@ -99,7 +99,7 @@ class _FillButton(tk.Frame):
             txt = f"Devam Et  {n} / 10"
             col = "#ffffff" if p >= 0.5 else TEXT_SECONDARY
         else:
-            txt, col = self._base_text, TEXT_TERTIARY
+            txt, col = self._base_text, TEXT_SECONDARY
 
         cv.create_text(W // 2, H // 2, text=txt, fill=col, font=("Inter", 14, "bold"))
 

@@ -55,7 +55,7 @@ BORDER_FAINT = "#111830"   # çok ince kenarlık
 
 TEXT_PRIMARY   = "#e2eaf6"   # mavi-beyaz
 TEXT_SECONDARY = "#526d8a"   # çelik mavi
-TEXT_TERTIARY  = "#2a3d55"   # çok soluk
+TEXT_TERTIARY  = "#4a6888"   # soluk — ama okunabilir
 
 ACCENT     = "#10b981"   # emerald-500
 ACCENT_BG  = "#052e1c"   # koyu emerald arka plan
