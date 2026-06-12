@@ -167,27 +167,30 @@ SharePoint Stream videolarını otomatik indirir.
 ## Proje Yapısı
 
 ```
-blackboard/
-├── main.py               ← Uygulama giriş noktası
-├── config.py             ← Sabitler ve ayarlar
-├── models.py             ← Veri yapıları (Course, Item, Status)
-├── state.py              ← progress.json ve manifest.json yönetimi
-├── auth.py               ← Playwright login ve cookie yönetimi
-├── crawler.py            ← REST API ile ders ve içerik keşfi
-├── downloader.py         ← Async dosya indirme ve doğrulama
-├── gui/
+istinye-bb-sync/
+├── core/                 ← Backend mantığı
+│   ├── config.py         ← URL'ler, sabitler, renk paleti
+│   ├── models.py         ← Course, Item, DownloadFilter veri modelleri
+│   ├── state.py          ← manifest.json / progress.json yönetimi
+│   ├── auth.py           ← Playwright login ve cookie yönetimi
+│   ├── crawler.py        ← REST API ile ders ve içerik keşfi
+│   └── downloader.py     ← Async dosya indirme ve doğrulama
+├── gui/                  ← Arayüz
 │   ├── app.py            ← Ana pencere, ekran geçişleri
+│   ├── theme.py          ← Renk ve tipografi sabitleri
 │   ├── screen_login.py   ← Login ekranı
 │   ├── screen_courses.py ← Ders seçim ekranı
 │   ├── screen_filter.py  ← Filtre ekranı
 │   └── screen_progress.py← İndirme ekranı
-├── data/
-│   ├── downloads/        ← İndirilen dosyalar
-│   ├── manifest.json     ← Keşfedilen içerikler (otomatik)
-│   └── progress.json     ← İndirme durumu (otomatik)
+├── docs/                 ← Geliştirici belgeleri
+│   ├── PLAN.md
+│   └── ROADMAP.md
+├── data/                 ← Runtime verisi (Git'e girmez)
+│   └── downloads/
+├── main.py               ← Giriş noktası
 ├── setup.sh              ← Kurulum scripti
 ├── run.sh                ← Başlatma scripti
-└── requirements.txt      ← Python bağımlılıkları
+└── requirements.txt
 ```
 
 ---

@@ -1,10 +1,11 @@
 # Virtual environment
 .venv/
 
-# Downloaded files (kişisel veriler)
+# Runtime data (personal)
 data/downloads/
 data/progress.json
 data/manifest.json
+data/*.json
 
 # Python
 __pycache__/
