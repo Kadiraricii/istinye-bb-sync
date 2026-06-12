@@ -36,7 +36,7 @@ class App:
 
         self._root = ctk.CTk()
         self._root.title("Blackboard Sync")
-        self._root.resizable(False, True)
+        self._root.resizable(False, False)
         self._root.configure(fg_color=BG_BASE)
         self._root.protocol("WM_DELETE_WINDOW", self._on_close)
         self._root.bind("<Escape>", self._on_escape)
