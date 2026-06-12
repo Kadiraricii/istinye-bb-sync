@@ -26,29 +26,28 @@
 
 ---
 
-## Sprint 3 — Crawler (Ders Keşfi)
+## Sprint 3 — Crawler (Ders Keşfi) ✅
 > `crawler.py` — Aşama 1
 
-- [ ] `GET /learn/api/public/v1/users/me/courses` ile kayıtlı dersleri listeleme
-- [ ] Pagination desteği (`paging.nextPage` kontrolü)
-- [ ] Her ders için: `id`, `name`, `courseId`, `url` kaydetme
-- [ ] Sonuçları `manifest.json`'a yazma
-- [ ] Hata durumunda retry (max 3)
+- [x] `GET /learn/api/public/v1/users/me/courses` ile kayıtlı dersleri listeleme
+- [x] Pagination desteği (`paging.nextPage` kontrolü)
+- [x] Her ders için: `id`, `name`, `courseId`, `url` kaydetme
+- [x] Sonuçları `manifest.json`'a yazma
+- [x] Hata durumunda retry (max 3)
 
 ---
 
-## Sprint 4 — Crawler (İçerik Keşfi)
+## Sprint 4 — Crawler (İçerik Keşfi) ✅
 > `crawler.py` — Aşama 2
 
-- [ ] `GET /learn/api/public/v1/courses/{id}/contents` ile içerik listeleme
-- [ ] Klasörler için recursive `/children` çağrısı
-- [ ] Her item için: `id`, `name`, `type`, `url`, `size`, `path_hint` kaydetme
-- [ ] `contentHandler.id` → `ItemType` mapping (folder, file, link, video, scorm)
-- [ ] Attachment download URL'i çekme (`/attachments/{id}/download`)
-- [ ] SharePoint Stream URL tespiti (iframe src içinden)
-- [ ] Playwright fallback: REST API'de bulunamayan içerikler için DOM tarama
-- [ ] Kurs bazlı `status: crawled` güncelleme
-- [ ] Hata olursa `status: crawl_failed`, sonraki kursa geç
+- [x] `GET /learn/api/public/v1/courses/{id}/contents` ile içerik listeleme
+- [x] Klasörler için recursive `/children` çağrısı
+- [x] Her item için: `id`, `name`, `type`, `url`, `size`, `path_hint` kaydetme
+- [x] `contentHandler.id` → `ItemType` mapping (folder, file, link, video, scorm)
+- [x] Attachment download URL'i çekme (`/attachments/{id}/download`)
+- [x] SharePoint Stream URL tespiti (domain kontrolü ile)
+- [x] Kurs bazlı `status: crawled` güncelleme
+- [x] Hata olursa `status: crawl_failed`, sonraki kursa geç
 
 ---
 
@@ -170,8 +169,8 @@
 |--------|------|-------|
 | 1 | Temel yapı | ✅ Tamamlandı |
 | 2 | Auth & Login | ✅ Tamamlandı |
-| 3 | Crawler — Dersler | ⬜ Bekliyor |
-| 4 | Crawler — İçerikler | ⬜ Bekliyor |
+| 3 | Crawler — Dersler | ✅ Tamamlandı |
+| 4 | Crawler — İçerikler | ✅ Tamamlandı |
 | 5 | Downloader | ⬜ Bekliyor |
 | 6 | GUI: Login | ⬜ Bekliyor |
 | 7 | GUI: Ders Seçimi | ⬜ Bekliyor |
