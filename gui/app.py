@@ -11,7 +11,7 @@ import requests
 
 from core.config import WINDOW_HEIGHT, WINDOW_WIDTH
 from core.crawler import BlackboardCrawler, fetch_user_name
-from core.state import save_remembered_user
+from core.state import save_remembered_user, save_cookies, load_manifest
 from core.downloader import BlackboardDownloader
 from core.models import Course, DownloadFilter, Item
 from gui.screen_courses import CoursesScreen
@@ -77,28 +77,37 @@ class App:
             LoginScreen(
                 self._root,
                 on_login_success=self._on_login_success,
+                on_quick_resume=self._on_quick_resume,
             )
         )
 
     def _show_courses(self) -> None:
-        screen = CoursesScreen(
-            self._root,
-            on_continue=self._on_courses_continue,
-            on_back=self._show_login,
-        )
-        self._swap_screen(screen)
-        screen.set_student_name(self._student_name)
-        screen.set_loading(True)
-        self._run_async(self._async_discover_courses(screen))
+        login = self._current_screen
+        if hasattr(login, "show_syncing"):
+            login.show_syncing()
+        self._run_async(self._async_discover_courses())
 
     def _show_filter(self) -> None:
         screen = FilterScreen(
             self._root,
             on_start=self._on_filter_start,
-            on_back=self._show_courses,
+            on_back=self._show_courses_cached,
+            dest_dir=self._dest_dir,
         )
         screen.set_courses(self._selected)
         self._swap_screen(screen)
+
+    def _show_courses_cached(self) -> None:
+        """Kurs ekranına geri döner — yeniden tarama yapmaz."""
+        courses_screen = CoursesScreen(
+            self._root,
+            on_continue=self._on_courses_continue,
+            on_back=self._show_login,
+        )
+        self._swap_screen(courses_screen)
+        courses_screen.set_student_name(self._student_name)
+        courses_screen.load_courses(self._courses)
+        courses_screen.set_loading(False)
 
     def _show_progress(self) -> None:
         screen = ProgressScreen(
@@ -120,15 +129,27 @@ class App:
     # ── Event Handlers ────────────────────────────────────────
 
     def _on_login_success(self, student_no: str, session: requests.Session) -> None:
-        self._student_no  = student_no
-        self._session     = session
-        # Adı arka planda çek, sonra kurs ekranına geç
+        self._student_no = student_no
+        self._session    = session
         import threading
         def _fetch():
             self._student_name = fetch_user_name(session)
             save_remembered_user(student_no, self._student_name)
+            save_cookies(session)
             self._root.after(0, self._show_courses)
         threading.Thread(target=_fetch, daemon=True).start()
+
+    def _on_quick_resume(self, session: requests.Session) -> None:
+        """Kaydedilmiş cookie + mevcut manifest ile login adımını atla."""
+        from core.state import load_remembered_user
+        remembered = load_remembered_user()
+        if remembered:
+            self._student_no   = remembered.get("student_no", "")
+            self._student_name = remembered.get("name", "")
+        self._session  = session
+        self._courses  = load_manifest()
+        self._selected = {}
+        self._show_courses_cached()
 
     def _on_courses_continue(
         self, selected: dict[str, Course], dest_dir: Path
@@ -160,7 +181,10 @@ class App:
 
         threading.Thread(target=_worker, daemon=True).start()
 
-    async def _async_discover_courses(self, screen: CoursesScreen) -> None:
+    async def _async_discover_courses(self) -> None:
+        import threading
+        from concurrent.futures import ThreadPoolExecutor
+
         def status(msg: str) -> None:
             self._gui_queue.put(("status", msg))
 
@@ -170,12 +194,27 @@ class App:
                 None, crawler.discover_courses,
             )
             self._courses = courses
+            total = len(courses)
+            self._gui_queue.put(("sync_total", total))
 
-            for cid, course in courses.items():
-                await asyncio.get_event_loop().run_in_executor(
-                    None, crawler.crawl_course, course, courses,
-                )
-                self._gui_queue.put(("courses_update", dict(courses)))
+            done_count = 0
+            lock = threading.Lock()
+            start_ts = __import__("time").time()
+
+            def crawl_one(course):
+                crawler.crawl_course(course, courses)
+                nonlocal done_count
+                with lock:
+                    done_count += 1
+                    n = done_count
+                elapsed = __import__("time").time() - start_ts
+                eta_s = int(elapsed / n * (total - n)) if n > 0 and n < total else 0
+                self._gui_queue.put(("sync_progress", (n, total, eta_s)))
+
+            loop = asyncio.get_event_loop()
+            with ThreadPoolExecutor(max_workers=4) as pool:
+                futs = [loop.run_in_executor(pool, crawl_one, c) for c in courses.values()]
+                await asyncio.gather(*futs, return_exceptions=True)
 
             self._gui_queue.put(("courses_done", dict(courses)))
         except Exception as exc:
@@ -191,6 +230,9 @@ class App:
         def file_done(item: Item, success: bool) -> None:
             self._gui_queue.put(("file_done", (item, success)))
 
+        def course_status(course_id: str, st: str) -> None:
+            self._gui_queue.put(("course_status", (course_id, st)))
+
         self._downloader = BlackboardDownloader(
             session=self._session,
             base_dir=self._dest_dir,
@@ -198,6 +240,7 @@ class App:
             on_status=status,
             on_progress=progress,
             on_file_done=file_done,
+            on_course_status=course_status,
         )
         try:
             await self._downloader.run(self._selected)
@@ -222,12 +265,24 @@ class App:
     def _handle_event(self, event: str, payload) -> None:
         screen = self._current_screen
         if event == "status":
-            pass  # login ekranı kendi callback'ini halleder
-        elif event == "courses_update" and isinstance(screen, CoursesScreen):
-            screen.load_courses(payload)
-        elif event == "courses_done" and isinstance(screen, CoursesScreen):
-            screen.load_courses(payload)
-            screen.set_loading(False)
+            pass
+        elif event == "sync_total":
+            if hasattr(screen, "set_sync_total"):
+                screen.set_sync_total(payload)
+        elif event == "sync_progress":
+            done, total, eta_s = payload
+            if hasattr(screen, "update_sync_progress"):
+                screen.update_sync_progress(done, total, eta_s)
+        elif event == "courses_done":
+            courses_screen = CoursesScreen(
+                self._root,
+                on_continue=self._on_courses_continue,
+                on_back=self._show_login,
+            )
+            self._swap_screen(courses_screen)
+            courses_screen.set_student_name(self._student_name)
+            courses_screen.load_courses(payload)
+            courses_screen.set_loading(False)
         elif event == "log" and isinstance(screen, ProgressScreen):
             msg, color = payload
             screen.add_log(msg, color or "")
@@ -237,6 +292,9 @@ class App:
         elif event == "file_done" and isinstance(screen, ProgressScreen):
             item, success = payload
             screen.on_file_done(item, success)
+        elif event == "course_status" and isinstance(screen, ProgressScreen):
+            course_id, st = payload
+            screen.update_course_status(course_id, st)
         elif event == "download_done" and isinstance(screen, ProgressScreen):
             stats = payload
             screen.show_summary(
@@ -252,7 +310,7 @@ class App:
         if isinstance(screen, CoursesScreen):
             self._show_login()
         elif isinstance(screen, FilterScreen):
-            self._show_courses()
+            self._show_courses_cached()
         elif isinstance(screen, ProgressScreen):
             screen._confirm_cancel()
 
@@ -261,8 +319,16 @@ class App:
     def _on_close(self) -> None:
         if self._downloader:
             self._downloader.cancel()
-        # Login ekranından auth referansı varsa profil klasörünü temizle
+        self._cleanup_auth()
+        self._root.destroy()
+
+    def _cleanup_auth(self) -> None:
+        """Tüm login ekranlarındaki auth profillerini temizle."""
+        import glob, shutil, tempfile
         screen = self._current_screen
         if isinstance(screen, LoginScreen) and hasattr(screen, "_auth") and screen._auth:
             screen._auth.cleanup()
-        self._root.destroy()
+        # Önceki çöküşlerden kalan temp profilleri de sil
+        tmp = tempfile.gettempdir()
+        for d in glob.glob(f"{tmp}/bb_sync_profile_*"):
+            shutil.rmtree(d, ignore_errors=True)
