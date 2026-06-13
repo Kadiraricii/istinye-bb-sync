@@ -10,7 +10,7 @@ Istinye Üniversitesi Blackboard Ultra sistemindeki ders materyallerini otomatik
 
 ## Nedir?
 
-Blackboard'daki her derse tek tek girip dosya indirmek yerine, bu araç tüm derslerini tarar, içerikleri listeler ve seçtiğin materyalleri bilgisayarına indirir. Hoca hangi klasör yapısını kurmuşsa aynen yansıtılır. Yarıda kesilirse kaldığı yerden devam eder.
+Blackboard'daki her derse tek tek girip dosya indirmek yerine, bu araç tüm derslerini tarar, içerikleri listeler ve seçtiğin materyalleri bilgisayarına indirir. Hocanın oluşturduğu klasör yapısı birebir korunur. Yarıda kesilirse kaldığı yerden devam eder.
 
 ---
 
@@ -18,37 +18,39 @@ Blackboard'daki her derse tek tek girip dosya indirmek yerine, bu araç tüm der
 
 **İndirme**
 - Tüm dersler veya seçilen dersler
-- PDF, sunum, doküman, tablo, resim, arşiv
-- SharePoint Stream videoları (yt-dlp ile) veya link olarak kaydetme
-- Hoca klasör yapısı birebir korunur
+- PDF, sunum, belge, tablo, resim, arşiv, kod dosyaları (.py, .java, .c vb.)
+- Harici linkler `links.txt` dosyasına kaydedilir
+- SharePoint Stream videoları yt-dlp ile indirilebilir veya `video_links.txt`'e kaydedilebilir
+- Hocanın klasör yapısı birebir korunur
 - Kaldığı yerden devam (progress.json)
 - Boş / bozuk dosya koruması (3 kademeli doğrulama)
 - Türkçe karakter → ASCII dönüşümü, aynı isimde dosyalara `_2` eki
 
 **Keşif**
 - REST API üzerinden hızlı ders ve içerik taraması
+- İç içe klasörler ve doküman ekleri dahil tam içerik ağacı
 - Her ders için dosya sayısı ve tahmini boyut
 - Yeni eklenen içerikleri tespit etme (sync)
 
 **Filtreleme**
-- Dosya türüne göre (PDF, video, resim vs.)
-- Boyut aralığına göre (min–max MB)
-- Tarihe göre (belirli tarihten sonra eklenenler)
-- Dosya adında anahtar kelimeye göre
-- İndirme öncesi özet: "94 dosya · 1.2 GB"
+- Dosya türü chip'leriyle tek tıkla seçim:
+  `PDF · Sunum · Belge · Tablo · Resim · Arşiv · Kod · Diğer · Video · Link`
+- Video modu: Linkleri Kaydet / yt-dlp ile İndir / Atla
+- Video kalitesi: best / 1080 / 720 / worst
+- Dosya listesinde tek tek checkbox ile dahil/hariç bırakma
+- Eş zamanlı indirme hızı: ×1 / ×2 / ×5
+- İndirme öncesi özet: "115 dosya · 480 MB"
 
 **Arayüz**
-- Karanlık tema, zinc renk paleti
+- Karanlık tema, Deep Navy + Emerald renk paleti
 - Ders seçim ekranı: kart grid, arama, anlık boyut özeti
 - İndirme sırasında kurs bazlı ilerleme takibi
 - Kompakt mod: 48px ince şerit, tarayıcıyla yan yana çalışma
 - Her zaman üstte kalma seçeneği
-- Tarayıcı kapatılırsa uyarı ve otomatik yeniden açma
 
 **Güvenlik**
 - Şifre hiçbir zaman diske yazılmaz
-- Oturum cookie'leri kaydedilmez
-- Her başlatmada taze login gerekir
+- Oturum cookie'leri 1 saat sonra otomatik geçersiz sayılır
 
 ---
 
@@ -59,7 +61,6 @@ Blackboard'daki her derse tek tek girip dosya indirmek yerine, bu araç tüm der
 
 2. Playwright ile Chromium tarayıcı açılır (görünür mod)
    → Microsoft Azure AD SSO üzerinden login yapılır
-   → Kullanıcı tüm süreci tarayıcıda görebilir
    → MFA varsa kullanıcı kendisi halleder
 
 3. Session cookie (BbRouter) alınır
@@ -69,7 +70,7 @@ Blackboard'daki her derse tek tek girip dosya indirmek yerine, bu araç tüm der
 4. Blackboard REST API üzerinden dersler ve içerikler keşfedilir
    → /learn/api/public/v1/users/me/courses
    → /learn/api/public/v1/courses/{id}/contents
-   → Bulunamayan içerikler için Playwright fallback devreye girer
+   → Alt klasörler ve doküman ekleri recursive olarak taranır
 
 5. Kullanıcı dersleri seçer, filtreler ayarlar
 
@@ -93,11 +94,8 @@ Blackboard'daki her derse tek tek girip dosya indirmek yerine, bu araç tüm der
 ## Kurulum
 
 ```bash
-# Repoyu indir
 git clone https://github.com/Kadiraricii/istinye-bb-sync
 cd istinye-bb-sync
-
-# Kur (tek komut)
 ./setup.sh
 ```
 
@@ -113,18 +111,16 @@ cd istinye-bb-sync
 ## Kullanım
 
 ```bash
-# Uygulamayı başlat
 ./run.sh
 ```
 
-Adımlar:
-1. **Login ekranı** — Öğrenci numaranı gir, şifreni gir
-2. **Tarayıcı açılır** — Microsoft login sayfasında giriş yapılır (görünür)
+1. **Login** — Öğrenci numaranı ve şifreni gir
+2. **Tarayıcı** — Microsoft login sayfasında giriş yapılır, MFA varsa halledersin
 3. **Ders seçimi** — Keşfedilen dersler listelenir, istediğini seç
-4. **Filtreler** — Hangi dosya türlerini indireceğini ayarla
+4. **Filtreler** — Hangi dosya türlerini indireceğini ayarla, dosyaları listeden çıkarabilirsin
 5. **İndirme** — Başlat, izle, kapat
 
-İndirilen dosyalar varsayılan olarak `~/Downloads/Blackboard/` klasörüne kaydedilir. Uygulama içinden değiştirilebilir.
+İndirilen dosyalar varsayılan olarak `~/Downloads/Blackboard/` klasörüne kaydedilir.
 
 ---
 
@@ -132,64 +128,55 @@ Adımlar:
 
 ```
 ~/Downloads/Blackboard/
-├── BGT107_Bilgisayara_Giris/
-│   ├── Hafta_1/
-│   │   ├── Giris_Sunumu.pdf
-│   │   └── Ornekler.zip
-│   ├── Hafta_2/
-│   │   └── Degiskenler.pptx
-│   └── video_links.txt        ← video URL'leri
+├── BST020_Veri_Madenciligi/
+│   ├── Ders01/
+│   │   ├── BST020-Ders01-Notlar.pdf
+│   │   └── BST020-Ders01-Kod.py
+│   ├── Ders02/
+│   │   └── BST020-Ders02-Notlar.pdf
+│   ├── links.txt           ← harici linkler
+│   └── video_links.txt     ← video URL'leri
 ├── MAT101_Matematik_I/
-│   ├── Turev.pdf
-│   └── Integral.pdf
-└── ...
+│   └── ...
 ```
 
 ---
 
 ## Video İndirme
 
-Videolar iki şekilde işlenebilir:
-
 **Link olarak kaydet (varsayılan)**
-Video URL'leri `video_links.txt` dosyasına yazılır. Manuel indirmek için:
+Video URL'leri `video_links.txt` dosyasına yazılır:
 ```bash
-# yt-dlp kuruluysa:
 yt-dlp --cookies-from-browser chrome -a video_links.txt
 ```
 
 **Otomatik indir**
-Filtreler ekranında "Video → İndir" seçilirse yt-dlp session cookie'leriyle
-SharePoint Stream videolarını otomatik indirir.
+Filtreler ekranında "Video → yt-dlp ile İndir" seçilirse SharePoint Stream videoları session cookie'leriyle otomatik indirilir.
 
 ---
 
 ## Proje Yapısı
 
 ```
-istinye-bb-sync/
-├── core/                 ← Backend mantığı
-│   ├── config.py         ← URL'ler, sabitler, renk paleti
+blackboard/
+├── core/
+│   ├── config.py         ← URL'ler ve sabitler
 │   ├── models.py         ← Course, Item, DownloadFilter veri modelleri
 │   ├── state.py          ← manifest.json / progress.json yönetimi
 │   ├── auth.py           ← Playwright login ve cookie yönetimi
 │   ├── crawler.py        ← REST API ile ders ve içerik keşfi
 │   └── downloader.py     ← Async dosya indirme ve doğrulama
-├── gui/                  ← Arayüz
+├── gui/
 │   ├── app.py            ← Ana pencere, ekran geçişleri
 │   ├── theme.py          ← Renk ve tipografi sabitleri
 │   ├── screen_login.py   ← Login ekranı
 │   ├── screen_courses.py ← Ders seçim ekranı
-│   ├── screen_filter.py  ← Filtre ekranı
+│   ├── screen_filter.py  ← Filtre ve dosya seçim ekranı
 │   └── screen_progress.py← İndirme ekranı
-├── docs/                 ← Geliştirici belgeleri
-│   ├── PLAN.md
-│   └── ROADMAP.md
 ├── data/                 ← Runtime verisi (Git'e girmez)
-│   └── downloads/
-├── main.py               ← Giriş noktası
-├── setup.sh              ← Kurulum scripti
-├── run.sh                ← Başlatma scripti
+├── main.py
+├── setup.sh
+├── run.sh
 └── requirements.txt
 ```
 
@@ -197,24 +184,23 @@ istinye-bb-sync/
 
 ## Bağımlılıklar
 
-| Paket | Sürüm | Amaç |
-|-------|-------|------|
-| playwright | 1.49.0 | Tarayıcı otomasyonu (login) |
-| customtkinter | 5.2.2 | Masaüstü GUI |
-| httpx | 0.27.2 | Async HTTP / dosya indirme |
-| yt-dlp | 2024.12.13 | Video indirme |
-| python-slugify | 8.0.4 | Türkçe → ASCII dosya adı |
-| rich | 13.9.4 | Terminal çıktı formatı |
-| aiofiles | 24.1.0 | Async dosya yazma |
+| Paket | Amaç |
+|-------|-------|
+| playwright | Tarayıcı otomasyonu (login) |
+| customtkinter | Masaüstü GUI |
+| httpx | Async HTTP / dosya indirme |
+| yt-dlp | Video indirme |
+| python-slugify | Türkçe → ASCII dosya adı |
+| aiofiles | Async dosya yazma |
 
 ---
 
 ## Notlar
 
-- Bu araç yalnızca kendi ders materyallerinizi indirmek için tasarlanmıştır
-- Blackboard session süresi dolunca (genellikle 2–8 saat) yeniden login gerekir
+- Bu araç yalnızca kendi ders materyallerini indirmek için tasarlanmıştır
+- Blackboard session süresi dolunca yeniden login gerekir
 - Sunucuya aşırı yük bindirmemek için indirmeler arasında otomatik bekleme uygulanır
-- SCORM paketleri ve bazı gömülü içerikler indirilemeyebilir, URL olarak kaydedilir
+- SCORM paketleri indirilemez, URL olarak kaydedilir
 
 ---
 
