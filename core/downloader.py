@@ -153,9 +153,9 @@ class BlackboardDownloader:
         for item in items:
             if self._cancelled:
                 break
-            # threading.Event — GUI thread'inden güvenli çağrılabilir
-            loop = asyncio.get_running_loop()
-            await loop.run_in_executor(None, self._paused.wait)
+            # Duraklatma kontrolü — event set olmana kadar async poll
+            while not self._paused.is_set():
+                await asyncio.sleep(0.05)
             if self._cancelled:
                 break
             async with self._semaphore:
@@ -388,8 +388,16 @@ class BlackboardDownloader:
     # ── Yol Yardımcıları ──────────────────────────────────────
 
     def _resolve_course_dir(self, course: Course) -> Path:
-        code   = course.course_code or course.id
-        folder = f"{code}_{slugify_filename(course.name)}" if code else slugify_filename(course.name)
+        code  = slugify_filename(course.friendly_code)  if course.friendly_code  else ""
+        title = slugify_filename(course.friendly_title) if course.friendly_title else ""
+        if code and title:
+            folder = f"{code}_{title}"
+        elif code:
+            folder = code
+        elif title:
+            folder = title
+        else:
+            folder = slugify_filename(course.name) or course.id
         return self._base_dir / folder
 
     @staticmethod
