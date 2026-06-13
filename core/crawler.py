@@ -90,12 +90,19 @@ class BlackboardCrawler:
                 name = course_data.get("name", "Bilinmeyen Ders")
                 url_path = f"{BB_ULTRA}/courses/{entry.get('id', '')}/outline"
 
-                courses[cid] = Course(
+                course = Course(
                     id=entry.get("courseId") or entry.get("id", cid),
                     name=name,
                     url=url_path,
                     course_code=course_data.get("courseId", ""),
                 )
+                # contacts alanından hoca adlarını hemen çek (ekstra API çağrısı gerekmez)
+                for contact in course_data.get("contacts", []):
+                    nm   = contact.get("name", {})
+                    full = f"{nm.get('given','').strip()} {nm.get('family','').strip()}".strip()
+                    if full and full not in course.instructors:
+                        course.instructors.append(full)
+                courses[cid] = course
 
             url = self._next_page(data)
 
@@ -114,7 +121,8 @@ class BlackboardCrawler:
         try:
             items = self._crawl_contents(course.id, parent_hint="")
             course.items = {item.id: item for item in items}
-            course.instructors = self._get_instructors(course.course_code or course.id)
+            if not course.instructors:
+                course.instructors = self._get_instructors(course.id, course.course_code)
             course.status = CourseStatus.CRAWLED
             all_courses[manifest_key] = course
             save_manifest(all_courses)
@@ -192,36 +200,42 @@ class BlackboardCrawler:
 
         return items
 
-    _INSTRUCTOR_ROLES = {"Instructor", "TeachingAssistant", "CourseBuilder", "P"}
+    _INSTRUCTOR_ROLES = {"Instructor", "TeachingAssistant", "CourseBuilder", "P",
+                          "primaryInstructor", "instructor"}
 
-    def _get_instructors(self, course_id: str) -> list[str]:
-        """Hoca adlarını çeker. External ID ise courseId: prefix kullanır, pagination yapar."""
-        try:
-            prefix = "" if course_id.startswith("_") else "courseId:"
-            url: Optional[str] = (
-                f"{BB_API}/courses/{prefix}{course_id}/users"
-                "?limit=100&expand=user"
-            )
-            names: list[str] = []
-            while url:
-                resp = self._session.get(url, timeout=8)
-                if resp.status_code != 200:
-                    return []
-                data = resp.json()
-                for entry in data.get("results", []):
-                    if entry.get("courseRoleId") not in self._INSTRUCTOR_ROLES:
-                        continue
-                    user = entry.get("user", {})
-                    nm   = user.get("name", {})
-                    full = f"{nm.get('given','').strip()} {nm.get('family','').strip()}".strip()
-                    if full:
-                        names.append(full)
+    def _get_instructors(self, internal_id: str, external_code: str = "") -> list[str]:
+        """Hoca adlarını çeker. Önce internal ID, sonra external code ile dener."""
+        candidates: list[str] = []
+        if internal_id.startswith("_"):
+            candidates.append(internal_id)
+        if external_code:
+            candidates.append(f"courseId:{external_code}")
+
+        for ref in candidates:
+            try:
+                url: Optional[str] = (
+                    f"{BB_API}/courses/{ref}/users?limit=100&expand=user"
+                )
+                names: list[str] = []
+                while url:
+                    resp = self._session.get(url, timeout=8)
+                    if resp.status_code != 200:
+                        break
+                    data = resp.json()
+                    for entry in data.get("results", []):
+                        if entry.get("courseRoleId") not in self._INSTRUCTOR_ROLES:
+                            continue
+                        user = entry.get("user", {})
+                        nm   = user.get("name", {})
+                        full = f"{nm.get('given','').strip()} {nm.get('family','').strip()}".strip()
+                        if full and full not in names:
+                            names.append(full)
+                    url = self._next_page(data)
                 if names:
-                    return names  # Hocaları bulduk, aramaya devam etme
-                url = self._next_page(data)
-            return names
-        except Exception:
-            return []
+                    return names
+            except Exception:
+                continue
+        return []
 
     def _get_attachments(self, course_id: str, content_id: str) -> list[dict]:
         """Bir içeriğin dosya attachment'larını çeker."""
