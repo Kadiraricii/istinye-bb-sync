@@ -1,15 +1,16 @@
 from __future__ import annotations
 
+import tkinter as tk
 from datetime import datetime
 from pathlib import Path
 from tkinter import filedialog
 from typing import Callable
 
-import customtkinter as ctk
+import customtkinter as ctk  # type: ignore[import-not-found]
 
 from core.models import Course, CourseStatus
 from gui.theme import (
-    ACCENT, BG_BASE, BG_ELEVATED, BG_HOVER, BORDER,
+    ACCENT, ACCENT_BG, BG_BASE, BG_ELEVATED, BG_HOVER, BORDER, BORDER_FAINT,
     FONT_BODY, FONT_SMALL,
     TEXT_PRIMARY, TEXT_SECONDARY, TEXT_TERTIARY,
 )
@@ -32,12 +33,16 @@ _DEFAULT_DIR = Path.home() / "Downloads" / "Blackboard"
 
 
 def _tr_fold(s: str) -> str:
-    """Türkçe büyük/küçük harf duyarsız karşılaştırma için normalleştirir."""
+    """Türkçe büyük/küçük harf duyarsız arama için normalleştirir."""
     return (
-        s.replace("İ", "i").replace("I", "i").replace("ı", "i")
-         .replace("Ş", "ş").replace("Ğ", "ğ").replace("Ü", "ü")
-         .replace("Ö", "ö").replace("Ç", "ç")
-         .lower()
+        s
+        .replace("İ", "i").replace("I", "i").replace("ı", "i")
+        .replace("Ş", "s").replace("ş", "s")
+        .replace("Ğ", "g").replace("ğ", "g")
+        .replace("Ü", "u").replace("ü", "u")
+        .replace("Ö", "o").replace("ö", "o")
+        .replace("Ç", "c").replace("ç", "c")
+        .lower()
     )
 
 _SEM_COLORS = {
@@ -120,10 +125,10 @@ class CoursesScreen(ctk.CTkFrame):
         self._lbl_greeting = ctk.CTkLabel(
             head_center,
             text="",
-            font=("Inter", 11),
-            text_color=TEXT_TERTIARY,
+            font=("Inter", 14, "bold"),
+            text_color=TEXT_PRIMARY,
         )
-        self._lbl_greeting.pack(anchor="w", pady=(2, 0))
+        self._lbl_greeting.pack(anchor="w", pady=(3, 0))
 
         # Aksiyon butonları
         act_box = ctk.CTkFrame(hdr, fg_color="transparent")
@@ -133,8 +138,8 @@ class CoursesScreen(ctk.CTkFrame):
             act_box, text="Tümünü seç",
             command=self._select_all,
             fg_color="transparent", hover_color=BG_HOVER,
-            text_color=ACCENT, font=("Inter", 11),
-            corner_radius=6, height=30,
+            text_color=ACCENT, font=("Inter", 12, "bold"),
+            corner_radius=6, height=34,
             border_width=1, border_color=BORDER,
         ).pack(side="left", padx=(0, 4))
 
@@ -142,8 +147,8 @@ class CoursesScreen(ctk.CTkFrame):
             act_box, text="Temizle",
             command=self._clear_all,
             fg_color="transparent", hover_color=BG_HOVER,
-            text_color=TEXT_SECONDARY, font=("Inter", 11),
-            corner_radius=6, height=30,
+            text_color=TEXT_SECONDARY, font=("Inter", 12),
+            corner_radius=6, height=34,
             border_width=1, border_color=BORDER,
         ).pack(side="left")
 
@@ -159,13 +164,14 @@ class CoursesScreen(ctk.CTkFrame):
 
         self._entry_search = ctk.CTkEntry(
             toolbar,
-            placeholder_text="Ders kodu veya adı ara...",
+            placeholder_text="Ders kodu, adı veya hoca ara...",
             fg_color=BG_ELEVATED, border_color=BORDER, border_width=1,
             text_color=TEXT_PRIMARY, placeholder_text_color=TEXT_TERTIARY,
             corner_radius=7, font=FONT_BODY, height=36,
         )
         self._entry_search.grid(row=0, column=0, sticky="ew", padx=(0, 8))
         self._entry_search.bind("<KeyRelease>", self._on_search)
+        self._entry_search.bind("<<Paste>>", lambda _: self.after(10, self._on_search))
 
         self._sem_menu = ctk.CTkOptionMenu(
             toolbar,
@@ -272,10 +278,22 @@ class CoursesScreen(ctk.CTkFrame):
 
     # ── Dönem filtresi ────────────────────────────────────────
 
+    _SEM_ORDER = {"Güz": 0, "Bahar": 1, "Yaz": 2}
+
+    @staticmethod
+    def _sem_sort_key(s: str) -> tuple:
+        parts = s.split()
+        try:
+            year = int(parts[1].split("-")[0]) if len(parts) > 1 else 0
+        except (ValueError, IndexError):
+            year = 0
+        return (-year, {"Güz": 0, "Bahar": 1, "Yaz": 2}.get(parts[0], 99))
+
     def _update_sem_options(self) -> None:
-        sems = sorted({
-            c.semester for c in self._all_courses.values() if c.semester
-        })
+        sems = sorted(
+            {c.semester for c in self._all_courses.values() if c.semester},
+            key=self._sem_sort_key,
+        )
         self._sem_menu.configure(values=["Tümü"] + sems)
 
     def _on_sem_filter(self, value: str) -> None:
@@ -327,7 +345,13 @@ class CoursesScreen(ctk.CTkFrame):
         sem = self._sem_filter
         return {
             cid: c for cid, c in self._all_courses.items()
-            if (not q or q in _tr_fold(c.name) or q in _tr_fold(c.course_code or ""))
+            if (
+                not q
+                or q in _tr_fold(c.friendly_code)
+                or q in _tr_fold(c.friendly_title)
+                or q in _tr_fold(c.name)
+                or any(q in _tr_fold(ins) for ins in c.instructors)
+            )
             and (sem == "Tümü" or c.semester == sem)
         }
 
@@ -403,7 +427,10 @@ class CoursesScreen(ctk.CTkFrame):
 
 # ── Kurs Kartı ────────────────────────────────────────────────
 
-class _CourseCard(ctk.CTkFrame):
+class _CourseCard(tk.Frame):
+    """Ders kartı — sol accent çizgisi, seçili durumda emerald vurgu."""
+
+    _ACCENT_BAR = 3   # sol renkli çizgi genişliği
 
     def __init__(
         self,
@@ -412,87 +439,89 @@ class _CourseCard(ctk.CTkFrame):
         selected: bool,
         on_toggle: Callable,
     ) -> None:
-        super().__init__(
-            master,
-            fg_color=BG_ELEVATED,
-            corner_radius=10,
-            border_width=1,
-            border_color=ACCENT if selected else BORDER,
-            cursor="hand2",
-        )
+        super().__init__(master, bg=BG_ELEVATED, cursor="hand2")
         self._course   = course
         self._selected = selected
+        self._on_toggle = on_toggle
+        self._sem_lbl: tk.Label | None = None
         self._build()
-        self.bind("<Button-1>", lambda _: on_toggle())
-        for child in self.winfo_children():
-            child.bind("<Button-1>", lambda _: on_toggle())
+        self._bind_all(self)
+        self._apply_state()
+
+    def _bind_all(self, widget: tk.Widget) -> None:
+        widget.bind("<Button-1>", lambda _: self._on_toggle())
+        for child in widget.winfo_children():
+            self._bind_all(child)
+
+    # ── Build ─────────────────────────────────────────────────
 
     def _build(self) -> None:
-        self.grid_columnconfigure(0, weight=1)
+        # Outer border frame (simulates rounded border via bg color trick)
+        self.configure(highlightthickness=1, highlightbackground=BORDER)  # type: ignore[call-arg]
 
-        # ── Üst satır: kod + semester tag + checkbox ──
-        top = ctk.CTkFrame(self, fg_color="transparent")
-        top.grid(row=0, column=0, padx=12, pady=(10, 0), sticky="ew")
-        top.grid_columnconfigure(1, weight=1)
+        # Sol accent çizgisi (Canvas — tek piksel çizgi yerine 3px bar)
+        self._bar = tk.Canvas(
+            self, width=self._ACCENT_BAR, bg=BORDER,
+            highlightthickness=0,
+        )
+        self._bar.pack(side="left", fill="y")
 
-        code = self._course.friendly_code or self._course.course_code
-        ctk.CTkLabel(
-            top,
-            text=code,
-            font=("Inter", 13, "bold"),
-            text_color=ACCENT,
+        # İçerik alanı
+        body = tk.Frame(self, bg=BG_ELEVATED)
+        body.pack(side="left", fill="both", expand=True, padx=(10, 12), pady=10)
+
+        # ── Satır 1: Kod + dönem etiketi + checkbox ──
+        top = tk.Frame(body, bg=BG_ELEVATED)
+        top.pack(fill="x")
+
+        code = self._course.friendly_code or self._course.course_code or ""
+        tk.Label(
+            top, text=code,
+            font=("Inter", 12, "bold"),
+            fg=ACCENT, bg=BG_ELEVATED,
             anchor="w",
-        ).grid(row=0, column=0, sticky="w")
+        ).pack(side="left")
 
         sem = self._course.semester
         if sem:
             key = sem.split()[0]
-            bg, fg = _SEM_COLORS.get(key, (BG_HOVER, TEXT_TERTIARY))
-            ctk.CTkLabel(
-                top,
-                text=f"  {sem}  ",
-                font=("Inter", 10, "bold"),
-                text_color=fg,
-                fg_color=bg,
-                corner_radius=4,
-            ).grid(row=0, column=1, sticky="w", padx=(8, 0))
+            sem_bg, sem_fg = _SEM_COLORS.get(key, (BG_HOVER, TEXT_TERTIARY))
+            self._sem_lbl = tk.Label(
+                top, text=f" {sem} ",
+                font=("Inter", 9, "bold"),
+                fg=sem_fg, bg=sem_bg,
+                padx=5, pady=1,
+            )
+            self._sem_lbl.pack(side="left", padx=(7, 0))
 
-        self._chk = ctk.CTkLabel(
+        # Checkbox — sağa yaslanmış
+        self._chk_var = tk.StringVar(value="✓" if self._selected else "")
+        self._chk = tk.Label(
             top,
-            text="✓" if self._selected else "",
-            font=("Inter", 13, "bold"),
-            text_color="#ffffff",
-            fg_color=ACCENT if self._selected else BORDER,
-            corner_radius=4,
-            width=20,
-            height=20,
+            textvariable=self._chk_var,
+            font=("Inter", 11, "bold"),
+            fg="#ffffff",
+            bg=ACCENT if self._selected else BORDER,
+            width=2, height=1,
+            relief="flat",
         )
-        self._chk.grid(row=0, column=2, padx=(4, 0))
+        self._chk.pack(side="right")
 
-        # ── Ders adı ──────────────────────────────
+        # ── Satır 2: Ders adı ──────────────────────
         title = self._course.friendly_title or self._course.name
-        ctk.CTkLabel(
-            self,
-            text=title,
-            font=FONT_BODY,
-            text_color=TEXT_PRIMARY,
-            anchor="w",
-            wraplength=280,
-            justify="left",
-        ).grid(row=1, column=0, padx=12, pady=(4, 0), sticky="w")
+        tk.Label(
+            body, text=title,
+            font=("Inter", 12),
+            fg=TEXT_PRIMARY, bg=BG_ELEVATED,
+            anchor="w", justify="left",
+            wraplength=270,
+        ).pack(fill="x", pady=(5, 0))
 
-        # ── Hoca adı ─────────────────────────────
-        if self._course.instructors:
-            ctk.CTkLabel(
-                self,
-                text="👤 " + "  ·  ".join(self._course.instructors[:2]),
-                font=FONT_SMALL,
-                text_color=TEXT_SECONDARY,
-                anchor="w",
-            ).grid(row=2, column=0, padx=12, pady=(3, 0), sticky="w")
+        # ── Satır 3: Hoca adı veya bilgi satırı ───
+        info_row = tk.Frame(body, bg=BG_ELEVATED)
+        info_row.pack(fill="x", pady=(4, 0))
 
-        # ── İstatistikler ─────────────────────────
-        parts = []
+        parts: list[str] = []
         if self._course.file_count:
             parts.append(f"{self._course.file_count} dosya")
         if self._course.video_count:
@@ -503,34 +532,40 @@ class _CourseCard(ctk.CTkFrame):
         if mb > 0:
             parts.append(f"~{mb:.0f} MB")
 
-        if self._course.status != CourseStatus.CRAWLED:
-            # Henüz taranmadı
-            ctk.CTkLabel(
-                self,
-                text="⏳ Taranıyor...",
-                font=FONT_SMALL,
-                text_color=TEXT_TERTIARY,
+        if self._course.instructors:
+            names = "  ·  ".join(self._course.instructors[:2])
+            tk.Label(
+                info_row, text=names,
+                font=("Inter", 10),
+                fg=TEXT_SECONDARY, bg=BG_ELEVATED,
                 anchor="w",
-            ).grid(row=3, column=0, padx=12, pady=(3, 10), sticky="w")
-        elif parts:
-            # Tarandı ve içerik var
-            ctk.CTkLabel(
-                self,
-                text="  ·  ".join(parts),
-                font=FONT_SMALL,
-                text_color=TEXT_TERTIARY,
-                anchor="w",
-            ).grid(row=3, column=0, padx=12, pady=(3, 10), sticky="w")
-        else:
-            # Tarandı ama indirilebilir dosya yok — satırı gösterme, sadece alt boşluk
-            ctk.CTkFrame(self, fg_color="transparent", height=10).grid(
-                row=3, column=0, sticky="w",
-            )
+            ).pack(side="left")
+
+    # ── State ─────────────────────────────────────────────────
+
+    def _apply_state(self) -> None:
+        bar_color = ACCENT if self._selected else BORDER
+        card_bg   = ACCENT_BG if self._selected else BG_ELEVATED
+        border_c  = ACCENT if self._selected else BORDER
+
+        self._bar.configure(bg=bar_color)  # type: ignore[call-arg]
+        self.configure(bg=card_bg, highlightbackground=border_c)  # type: ignore[call-arg]
+        self._update_bg(self, card_bg)
+        self._chk.configure(
+            bg=ACCENT if self._selected else BORDER,
+        )
+        self._chk_var.set("✓" if self._selected else "")
+
+    def _update_bg(self, widget: tk.Widget, color: str) -> None:
+        skip = {self._bar, self._sem_lbl, self._chk}
+        try:
+            if widget not in skip:
+                widget.configure(bg=color)  # type: ignore[call-arg]  # pyrefly: ignore
+        except tk.TclError:
+            pass
+        for child in widget.winfo_children():
+            self._update_bg(child, color)
 
     def set_selected(self, selected: bool) -> None:
         self._selected = selected
-        self._chk.configure(
-            text="✓" if selected else "",
-            fg_color=ACCENT if selected else BORDER,
-        )
-        self.configure(border_color=ACCENT if selected else BORDER)
+        self._apply_state()
