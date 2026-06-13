@@ -237,6 +237,25 @@ def get_stats() -> dict:
     return data.get("stats", {})
 
 
+def clear_failed_for_courses(courses: dict) -> None:
+    """Belirtilen kursların başarısız item'larını siler (yeniden deneme için)."""
+    if not PROGRESS_FILE.exists():
+        return
+    all_ids = {item_id for c in courses.values() for item_id in c.items}
+    data = json.loads(PROGRESS_FILE.read_text())
+    items = {
+        k: v for k, v in data.get("items", {}).items()
+        if not (k in all_ids and v.get("status") == "failed")
+    }
+    downloaded = sum(1 for v in items.values() if v.get("status") == "downloaded")
+    failed     = sum(1 for v in items.values() if v.get("status") == "failed")
+    skipped    = sum(1 for v in items.values() if v.get("status") == "skipped")
+    data["items"] = items
+    data["stats"] = {"total": len(items), "downloaded": downloaded,
+                     "failed": failed, "skipped": skipped}
+    PROGRESS_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2))
+
+
 def clear_progress_for_courses(courses: dict) -> None:
     """Belirtilen kursların tüm item progress kayıtlarını siler."""
     if not PROGRESS_FILE.exists():
