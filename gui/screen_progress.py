@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import platform
+import subprocess
 import time
 import tkinter as tk
+from pathlib import Path
 from typing import Callable, Optional
 
 import customtkinter as ctk
@@ -26,6 +29,8 @@ class ProgressScreen(ctk.CTkFrame):
         on_resume: Callable,
         on_cancel: Callable,
         on_finish: Optional[Callable] = None,
+        on_retry:  Optional[Callable] = None,
+        dest_dir:  Optional[Path]     = None,
     ) -> None:
         super().__init__(master, fg_color=BG_BASE, corner_radius=0)
         self._master    = master
@@ -33,6 +38,8 @@ class ProgressScreen(ctk.CTkFrame):
         self._on_resume = on_resume
         self._on_cancel = on_cancel
         self._on_finish = on_finish
+        self._on_retry  = on_retry
+        self._dest_dir  = dest_dir
 
         self._paused        = False
         self._compact       = False
@@ -547,6 +554,7 @@ class ProgressScreen(ctk.CTkFrame):
         ctk.CTkButton(
             r, text="Devam et", command=popup.destroy, **BTN_PRIMARY,
         ).grid(row=0, column=1, padx=(4, 0), sticky="ew")
+        popup.protocol("WM_DELETE_WINDOW", popup.destroy)  # X = Devam et
         self._master.attributes("-topmost", False)
         popup.after(50, lambda: (popup.lift(), popup.focus_force()))
         popup.bind("<Destroy>", lambda _: self._master.attributes("-topmost", self._on_top), add="+")
@@ -561,9 +569,11 @@ class ProgressScreen(ctk.CTkFrame):
         except Exception:
             pass
 
+        has_retry = failed > 0 and self._on_retry is not None
+        height    = 470 if has_retry else 420
         popup = ctk.CTkToplevel(self._master)
         popup.title("İndirme Tamamlandı")
-        popup.geometry("380x400")
+        popup.geometry(f"380x{height}")
         popup.resizable(False, False)
         popup.grab_set()
         popup.attributes("-topmost", True)
@@ -600,8 +610,31 @@ class ProgressScreen(ctk.CTkFrame):
             ctk.CTkLabel(r, text=value, font=("Inter", 14, "bold"), text_color=TEXT_PRIMARY, width=40, anchor="w").pack(side="left", padx=(8, 4))
             ctk.CTkLabel(r, text=label, font=FONT_BODY, text_color=TEXT_SECONDARY, anchor="w").pack(side="left")
 
+        # "Klasörü Aç" butonu
+        ctk.CTkButton(
+            popup, text="📂  İndirilen Klasörü Aç",
+            command=self._open_folder,
+            fg_color="transparent", hover_color=BG_HOVER,
+            text_color=ACCENT, border_color=ACCENT, border_width=1,
+            corner_radius=8, font=FONT_BODY, height=36,
+        ).pack(fill="x", padx=28, pady=(14, 0))
+
+        # "Hataları Yeniden Dene" butonu — sadece hata varsa
+        if has_retry:
+            def _retry():
+                popup.destroy()
+                self._on_retry()
+
+            ctk.CTkButton(
+                popup, text=f"🔄  {failed} Hatayı Yeniden Dene",
+                command=_retry,
+                fg_color="#2d1500", hover_color="#3d1f00",
+                text_color="#fb923c", border_color="#7c2d12", border_width=1,
+                corner_radius=8, font=FONT_BODY, height=36,
+            ).pack(fill="x", padx=28, pady=(8, 0))
+
         btn_row = ctk.CTkFrame(popup, fg_color="transparent")
-        btn_row.pack(fill="x", padx=28, pady=(14, 20))
+        btn_row.pack(fill="x", padx=28, pady=(10, 20))
         btn_row.grid_columnconfigure(0, weight=1)
         btn_row.grid_columnconfigure(1, weight=1)
 
@@ -611,6 +644,7 @@ class ProgressScreen(ctk.CTkFrame):
 
         ctk.CTkButton(btn_row, text="Geri Dön", command=_done, **BTN_SECONDARY).grid(row=0, column=0, padx=(0, 4), sticky="ew")
         ctk.CTkButton(btn_row, text="Kapat",    command=_done, **BTN_PRIMARY).grid(row=0, column=1, padx=(4, 0), sticky="ew")
+        popup.protocol("WM_DELETE_WINDOW", _done)
         self._master.attributes("-topmost", False)
         popup.after(50, lambda: (popup.lift(), popup.focus_force()))
         popup.bind("<Destroy>", lambda _: self._master.attributes("-topmost", self._on_top), add="+")
@@ -656,6 +690,7 @@ class ProgressScreen(ctk.CTkFrame):
             text_color="#fca5a5", corner_radius=6, font=FONT_SMALL, height=36, width=140,
         ).pack(side="left", padx=6)
         ctk.CTkButton(r, text="Devam et", command=popup.destroy, **BTN_SECONDARY).pack(side="left", padx=6)
+        popup.protocol("WM_DELETE_WINDOW", popup.destroy)  # X = Devam et
         self._master.attributes("-topmost", False)
         popup.after(50, lambda: (popup.lift(), popup.focus_force()))
         popup.bind("<Destroy>", lambda _: self._master.attributes("-topmost", self._on_top), add="+")
@@ -679,6 +714,21 @@ class ProgressScreen(ctk.CTkFrame):
             self._compact_bar.pack_forget()
             self._body.pack(fill="both", expand=True)
             self._master.geometry(f"{WINDOW_WIDTH}x{WINDOW_HEIGHT}")
+
+    def _open_folder(self) -> None:
+        if not self._dest_dir:
+            return
+        target = self._dest_dir if self._dest_dir.exists() else self._dest_dir.parent
+        try:
+            if platform.system() == "Darwin":
+                subprocess.run(["open", str(target)], check=False)
+            elif platform.system() == "Windows":
+                import os
+                os.startfile(str(target))
+            else:
+                subprocess.run(["xdg-open", str(target)], check=False)
+        except Exception:
+            pass
 
     def _clear_log(self) -> None:
         self._log_count = 0
