@@ -14,7 +14,17 @@ import requests
 from core.config import DATA_DIR, DOWNLOADS_DIR, MANIFEST_FILE, PROGRESS_FILE, REMEMBER_FILE
 from core.models import Course, Item, DownloadStatus, CourseStatus
 
-COOKIES_FILE = DATA_DIR / "session.json"
+COOKIES_FILE   = DATA_DIR / "session.json"
+INIT_FLAG_FILE = DATA_DIR / ".initialized"
+
+
+def is_first_run() -> bool:
+    return not INIT_FLAG_FILE.exists()
+
+
+def mark_initialized() -> None:
+    ensure_dirs()
+    INIT_FLAG_FILE.touch()
 
 
 # ── Oturum Cookie Kalıcılığı ─────────────────────────────────
