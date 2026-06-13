@@ -212,10 +212,12 @@ class App:
                 self._gui_queue.put(("sync_progress", (n, total, eta_s)))
 
             loop = asyncio.get_event_loop()
-            with ThreadPoolExecutor(max_workers=4) as pool:
+            with ThreadPoolExecutor(max_workers=8) as pool:
                 futs = [loop.run_in_executor(pool, crawl_one, c) for c in courses.values()]
                 await asyncio.gather(*futs, return_exceptions=True)
 
+            from core.state import save_manifest
+            save_manifest(courses)
             self._gui_queue.put(("courses_done", dict(courses)))
         except Exception as exc:
             self._gui_queue.put(("status", f"Hata: {exc}"))
