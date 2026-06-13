@@ -151,11 +151,13 @@ class LoginScreen(ctk.CTkFrame):
         on_login_success: Callable,
         on_status: Optional[Callable[[str], None]] = None,
         on_quick_resume: Optional[Callable] = None,
+        on_show_onboarding: Optional[Callable] = None,
     ) -> None:
         super().__init__(master, fg_color=BG_BASE, corner_radius=0)
-        self._on_login_success = on_login_success
-        self._on_status_ext    = on_status
-        self._on_quick_resume  = on_quick_resume
+        self._on_login_success    = on_login_success
+        self._on_status_ext       = on_status
+        self._on_quick_resume     = on_quick_resume
+        self._on_show_onboarding  = on_show_onboarding
         self._login_running    = False
         self._auth: Optional[BlackboardAuth] = None
         self._student_no_val   = ""
@@ -258,33 +260,37 @@ class LoginScreen(ctk.CTkFrame):
             border_color=BORDER,
         )
         bottom.grid(row=r, column=0, sticky="ew", pady=(16, 0)); r += 1
-        bottom.grid_columnconfigure(1, weight=1)
+        bottom.grid_columnconfigure(0, weight=1)
+        bottom.grid_columnconfigure(1, weight=0)
 
-        # Sol dot
-        self._dot = ctk.CTkLabel(
-            bottom, text="●",
-            font=("Inter", 10), text_color=DOT_IDLE, width=14,
-        )
-        self._dot.grid(row=0, column=0, padx=(14, 4), pady=10)
-
-        # Status metni
-        self._lbl_status = ctk.CTkLabel(
-            bottom, text="Hazır",
-            font=("Inter", 11), text_color=TEXT_TERTIARY, anchor="w",
-        )
-        self._lbl_status.grid(row=0, column=1, sticky="w", pady=10)
-
-        # Güvenlik badge
+        # Sol: güvenlik
         ctk.CTkLabel(
-            bottom,
-            text="🔒 Şifre kaydedilmez",
+            bottom, text="🔒 Şifre kaydedilmez",
             font=("Inter", 10), text_color=TEXT_TERTIARY,
-        ).grid(row=0, column=2, padx=(0, 14), pady=10)
+        ).grid(row=0, column=0, padx=(14, 0), pady=10, sticky="w")
 
-        # Alt çizgi
-        ctk.CTkFrame(self, fg_color=BG_ELEVATED, corner_radius=0, height=1).grid(
-            row=2, column=0, sticky="ew",
-        )
+        # Sağ: Nasıl Çalışır
+        if self._on_show_onboarding:
+            ctk.CTkButton(
+                bottom,
+                text="ℹ  Nasıl Çalışır?",
+                command=self._on_show_onboarding,
+                fg_color="#052e1c", hover_color="#063d25",
+                text_color=ACCENT, border_color=ACCENT, border_width=1,
+                corner_radius=8, font=("Inter", 10, "bold"),
+                width=120, height=26,
+            ).grid(row=0, column=1, padx=(0, 12), pady=10, sticky="e")
+
+        # Dot + status — _build_step1 içinde label yanında oluşturulur
+        self._dot        = None
+        self._lbl_status = None
+
+        # Telif + kullanım notu
+        ctk.CTkLabel(
+            self,
+            text="Kadir Arıcı · 2026 · Kişisel kullanım amaçlı. Akademik dürüstlük kurallarına uygun kullanın.",
+            font=("Inter", 12), text_color="#2e4a6a",
+        ).grid(row=2, column=0, pady=(4, 8))
 
     # ─────────────────────────────────────────────────────────
     # ADIM 1  — Öğrenci Numarası
