@@ -8,7 +8,7 @@ import tkinter as tk
 import customtkinter as ctk
 
 from core.auth import BlackboardAuth
-from core.state import load_remembered_user, clear_remembered_user
+from core.state import load_remembered_user, clear_remembered_user, load_cookies, load_manifest, delete_cookies
 from gui.theme import (
     ACCENT, BG_BASE, BG_ELEVATED, BG_HOVER, BORDER,
     DOT_BUSY, DOT_ERROR, DOT_IDLE, DOT_OK,
@@ -26,19 +26,22 @@ _STEP_FG      = "#111830"   # adım geçiş rengi
 class _FillButton(tk.Frame):
     """Bardağa su dolar gibi alttan dolup boşalan devam butonu."""
 
-    _R = 12   # köşe yarıçapı
-    _H = 52
+    _R = 10   # köşe yarıçapı
+    _H = 50   # sabit yükseklik
 
     def __init__(self, parent, text: str, command: Callable) -> None:
-        super().__init__(parent, bg=_CARD_BG, bd=0, highlightthickness=0)
+        super().__init__(parent, bg=_CARD_BG, bd=0, highlightthickness=0,
+                         height=self._H)
+        self.pack_propagate(False)
         self._cmd = command
         self._base_text = text
         self._prog = 0.0
         self._target = 0.0
         self._anim = False
+        self._fill_color = ACCENT
 
         self._cv = tk.Canvas(
-            self, bg=_CARD_BG, bd=0, highlightthickness=0, height=self._H,
+            self, bg=_CARD_BG, bd=0, highlightthickness=0,
         )
         self._cv.pack(fill="both", expand=True)
         self._cv.bind("<Configure>", lambda _e: self._draw())
@@ -48,7 +51,6 @@ class _FillButton(tk.Frame):
 
     @staticmethod
     def _rr(x1: float, y1: float, x2: float, y2: float, r: float) -> list:
-        """12 kontrol noktası → smooth=True ile mükemmel yuvarlak dikdörtgen."""
         return [
             x1+r, y1,   x2-r, y1,
             x2,   y1,   x2,   y1+r,
@@ -66,49 +68,58 @@ class _FillButton(tk.Frame):
         cv.delete("all")
         R = self._R
         p = self._prog
-        pts = self._rr(0, 0, W, H, R)
+        bg_pts = self._rr(0, 0, W, H, R)
 
-        # 1. Düzgün yuvarlak arka plan
-        cv.create_polygon(pts, smooth=True, fill=BG_BASE, outline="")
+        # 1. Yuvarlak buton arka planı
+        cv.create_polygon(bg_pts, smooth=True, fill=BG_BASE, outline="")
 
-        # 2. Su doluyor (alttan üste)
+        # 2. Su doluyor — fill_color ile tam şekil çiz, sonra üst kısmı maskele
+        fc = self._fill_color
         if p > 0.001:
             fy = H * (1 - p)
-            if fy <= R:
-                # Üst köşe bölgesine erişti → tam yuvarlak
-                cv.create_polygon(pts, smooth=True, fill=ACCENT, outline="")
-            else:
-                # Düz üst kenarlı dikdörtgen dolgu
-                cv.create_rectangle(0, fy, W, H, fill=ACCENT, outline="")
-                # Alt köşeleri yuvarlat: dış kare _CARD_BG, iç çeyrek ACCENT
-                cv.create_rectangle(0, H - R, R, H, fill=_CARD_BG, outline="")
-                cv.create_arc(0, H - 2*R, 2*R, H, start=180, extent=90,
-                              fill=ACCENT, outline="", style="pieslice")
-                cv.create_rectangle(W - R, H - R, W, H, fill=_CARD_BG, outline="")
-                cv.create_arc(W - 2*R, H - 2*R, W, H, start=270, extent=90,
-                              fill=ACCENT, outline="", style="pieslice")
+            # Her zaman tam şekli doldur, sonra boş kısmı maskele
+            cv.create_polygon(bg_pts, smooth=True, fill=fc, outline="")
+            if fy > 0.5:
+                top_mask = [
+                    R,    0,    W-R,  0,
+                    W,    0,    W,    R,
+                    W,    fy,   W,    fy,
+                    0,    fy,   0,    fy,
+                    0,    R,    0,    0,
+                ]
+                cv.create_polygon(top_mask, smooth=True, fill=BG_BASE, outline="")
 
-        # 3. Border (aynı smooth polygon, sadece outline)
-        cv.create_polygon(pts, smooth=True, fill="", outline=ACCENT if p >= 1.0 else BORDER)
+        # 3. Border
+        brd = fc if p >= 1.0 else BORDER
+        cv.create_polygon(bg_pts, smooth=True, fill="", outline=brd)
 
         # 4. Metin
         n = round(p * 10)
         if p >= 1.0:
             txt, col = "Devam Et  →", "#ffffff"
         elif p > 0:
-            txt = f"Devam Et  {n} / 10"
+            txt = f"Devam Et  {n}/10"
             col = "#ffffff" if p >= 0.5 else TEXT_SECONDARY
         else:
             txt, col = self._base_text, TEXT_SECONDARY
 
-        cv.create_text(W // 2, H // 2, text=txt, fill=col, font=("Inter", 14, "bold"))
+        cv.create_text(W // 2, H // 2, text=txt, fill=col,
+                       font=("Inter", 14, "bold"))
 
     # ── animation ────────────────────────────────────────────
 
-    def set_progress(self, pct: float) -> None:
+    def set_fill_color(self, color: str) -> None:
+        self._fill_color = color
+        self._draw()
+
+    def set_progress(self, pct: float, instant: bool = False) -> None:
         self._target = max(0.0, min(1.0, pct))
         self._cv.configure(cursor="hand2" if self._target >= 1.0 else "")
-        if not self._anim:
+        if instant:
+            self._prog = self._target
+            self._anim = False
+            self._draw()
+        elif not self._anim:
             self._tick()
 
     def _tick(self) -> None:
@@ -128,7 +139,7 @@ class _FillButton(tk.Frame):
             self._cmd()
 
     def configure(self, **_kw) -> None:
-        pass  # CTkButton çağrılarını absorbe et
+        pass
 
 
 class LoginScreen(ctk.CTkFrame):
@@ -139,16 +150,37 @@ class LoginScreen(ctk.CTkFrame):
         master: ctk.CTk,
         on_login_success: Callable,
         on_status: Optional[Callable[[str], None]] = None,
+        on_quick_resume: Optional[Callable] = None,
     ) -> None:
         super().__init__(master, fg_color=BG_BASE, corner_radius=0)
         self._on_login_success = on_login_success
         self._on_status_ext    = on_status
+        self._on_quick_resume  = on_quick_resume
         self._login_running    = False
         self._auth: Optional[BlackboardAuth] = None
-        self._student_no_val   = ""   # adım 1'den adım 2'ye taşınır
+        self._student_no_val   = ""
         self._remembered       = load_remembered_user()
+        self._saved_session    = self._check_saved_session()
         self._build_outer()
         self._build_step1()
+
+    # ─────────────────────────────────────────────────────────
+    # KAYITLI OTURUM KONTROLÜ
+    # ─────────────────────────────────────────────────────────
+
+    def _check_saved_session(self):
+        """Cookie dosyası + manifest varsa (session, saved_at) döner, yoksa None."""
+        from datetime import datetime, timezone
+        if not load_manifest():
+            return None
+        result = load_cookies()
+        if not result:
+            return None
+        session, saved_at = result
+        age_hours = (datetime.now() - saved_at).total_seconds() / 3600
+        if age_hours > 0.5:
+            return None
+        return session, saved_at
 
     # ─────────────────────────────────────────────────────────
     # DIŞ KABUK  — logo / başlık / kart referansı / status
@@ -169,7 +201,7 @@ class LoginScreen(ctk.CTkFrame):
         body.grid_rowconfigure(0, weight=1)
 
         self._center = ctk.CTkFrame(body, fg_color="transparent")
-        self._center.grid(row=0, column=0, padx=60)
+        self._center.grid(row=0, column=0, padx=10)
         self._center.grid_columnconfigure(0, weight=1)
 
         r = 0
@@ -274,14 +306,12 @@ class LoginScreen(ctk.CTkFrame):
         ).grid(row=r, column=0, padx=26, pady=(26, 7), sticky="w"); r += 1
 
         # ── Entry ─────────────────────────────────
-        vcmd = (self.register(self._validate_no_key), "%P")
         self._entry_no = ctk.CTkEntry(
             card,
             placeholder_text="Örn. 2200000000",
             fg_color=BG_BASE, border_color=BORDER, border_width=1,
-            text_color=TEXT_PRIMARY, placeholder_text_color=TEXT_TERTIARY,
+            text_color=TEXT_PRIMARY, placeholder_text_color="#8aaecf",
             corner_radius=10, font=("Inter", 14), height=50,
-            validate="key", validatecommand=vcmd,
         )
         self._entry_no.grid(row=r, column=0, padx=26, sticky="ew"); r += 1
         if self._remembered:
@@ -290,23 +320,77 @@ class LoginScreen(ctk.CTkFrame):
         self._entry_no.bind("<Return>", lambda _: self._validate_step1())
         self._entry_no.focus_set()
 
-        # ── E-posta önizleme (chip) ────────────────
-        email_wrap = ctk.CTkFrame(card, fg_color="transparent")
-        email_wrap.grid(row=r, column=0, padx=26, pady=(8, 0), sticky="w"); r += 1
-        email_wrap.grid_columnconfigure(0, weight=0)
-
+        # ── E-posta önizleme ──────────────────────
         self._lbl_email = ctk.CTkLabel(
-            email_wrap, text="",
-            font=("Inter", 10), text_color=ACCENT, anchor="w",
+            card, text="",
+            font=("Inter", 11), text_color=ACCENT, anchor="w",
         )
-        self._lbl_email.pack(side="left")
-
-        if self._remembered:
-            self._on_no_change()
+        self._lbl_email.grid(row=r, column=0, padx=26, pady=(6, 0), sticky="w"); r += 1
 
         # ── Devam Et butonu (su dolar gibi) ──────
         self._btn_fill = _FillButton(card, "Devam Et  →", self._validate_step1)
-        self._btn_fill.grid(row=r, column=0, padx=26, pady=(22, 26), sticky="ew")
+        self._btn_fill.grid(row=r, column=0, padx=26, pady=(10, 26), sticky="ew")
+
+        if self._remembered:
+            no_pre = self._remembered["student_no"]
+            self._lbl_email.configure(text=f"→  {no_pre}@stu.istinye.edu.tr")
+            self._entry_no.configure(border_color=ACCENT)
+            self._btn_fill.set_progress(1.0, instant=True)
+
+        # ── Hızlı Devam — kaydedilmiş oturum varsa ───────────
+        if self._saved_session and self._on_quick_resume:
+            session, saved_at = self._saved_session
+            age_m = int((
+                __import__("datetime").datetime.now() - saved_at
+            ).total_seconds() / 60)
+            age_str = f"{age_m}dk önce" if age_m < 60 else f"{age_m // 60}sa önce"
+
+            sep = tk.Frame(card, bg=_CARD_BG, height=1)
+            sep.grid(row=r + 1, column=0, padx=26, sticky="ew")
+            tk.Frame(sep, bg=BORDER, height=1).pack(fill="x")
+
+            resume_btn = tk.Frame(
+                card, bg=_CARD_BG, cursor="hand2",
+            )
+            resume_btn.grid(row=r + 2, column=0, padx=26, pady=(8, 20), sticky="ew")
+            resume_btn.grid_columnconfigure(1, weight=1)
+
+            tk.Label(
+                resume_btn, text="⚡", bg=_CARD_BG,
+                font=("Inter", 14), fg=ACCENT,
+            ).grid(row=0, column=0, padx=(0, 8))
+
+            info_col = tk.Frame(resume_btn, bg=_CARD_BG)
+            info_col.grid(row=0, column=1, sticky="w")
+            tk.Label(
+                info_col, text="Önceki oturumla devam et",
+                bg=_CARD_BG, font=("Inter", 12, "bold"), fg=TEXT_PRIMARY,
+            ).pack(anchor="w")
+            tk.Label(
+                info_col, text=f"Kaydedilmiş oturum · {age_str}",
+                bg=_CARD_BG, font=("Inter", 10), fg=TEXT_TERTIARY,
+            ).pack(anchor="w")
+
+            def _do_delete():
+                delete_cookies()
+                self._saved_session = None
+                self._build_step1()
+
+            del_btn = tk.Label(
+                resume_btn, text="×", bg=_CARD_BG,
+                font=("Inter", 16), fg=TEXT_TERTIARY, cursor="hand2",
+                padx=4,
+            )
+            del_btn.grid(row=0, column=2, padx=(4, 0))
+            del_btn.bind("<Button-1>", lambda _: _do_delete())
+
+            def _bind_resume(w, skip):
+                if w in skip:
+                    return
+                w.bind("<Button-1>", lambda _: self._do_quick_resume(session))
+                for ch in w.winfo_children():
+                    _bind_resume(ch, skip)
+            _bind_resume(resume_btn, skip={del_btn})
 
     def _build_welcome_block(self, card: ctk.CTkFrame, start_row: int) -> None:
         """Hatırlanan kullanıcı için tıklanabilir profil kartı."""
@@ -354,9 +438,9 @@ class LoginScreen(ctk.CTkFrame):
         ctk.CTkButton(
             switch_row, text="Farklı hesap kullan",
             command=self._switch_account,
-            fg_color="transparent", hover_color="transparent",
+            fg_color="transparent", hover_color=BG_HOVER,
             text_color=TEXT_TERTIARY, font=("Inter", 10),
-            corner_radius=0, height=20, width=0,
+            corner_radius=4, height=20, width=0,
         ).pack(side="right")
 
         # Alt çizgi
@@ -377,79 +461,91 @@ class LoginScreen(ctk.CTkFrame):
         initial = name.strip()[0].upper() if name.strip() else no[:1].upper() if no else "?"
         display = name if name else no
 
-        # ── Üst satır: Geri + kimlik ──────────────
-        top = ctk.CTkFrame(card, fg_color="transparent")
-        top.grid(row=0, column=0, padx=20, pady=(16, 12), sticky="ew")
-        top.grid_columnconfigure(1, weight=1)
-
+        # ── Geri butonu ───────────────────────────
         ctk.CTkButton(
-            top, text="← Geri",
+            card, text="← Geri",
             command=self._go_back,
             fg_color="transparent", hover_color=BG_HOVER,
             text_color=TEXT_TERTIARY, font=("Inter", 11),
-            corner_radius=6, height=28, width=60, anchor="w",
-        ).grid(row=0, column=0)
+            corner_radius=6, height=28, width=70, anchor="w",
+        ).grid(row=0, column=0, padx=16, pady=(14, 0), sticky="w")
 
-        # Kimlik özeti — sağa yaslanmış kompakt chip
-        chip = ctk.CTkFrame(top, fg_color=BG_HOVER, corner_radius=20)
-        chip.grid(row=0, column=2, sticky="e")
+        # ── Kimlik avatar + isim ──────────────────
+        id_frame = ctk.CTkFrame(card, fg_color="transparent")
+        id_frame.grid(row=1, column=0, padx=28, pady=(10, 0), sticky="w")
 
-        av = ctk.CTkFrame(chip, fg_color=ACCENT, corner_radius=12, width=24, height=24)
-        av.grid(row=0, column=0, padx=(8, 0), pady=6)
-        av.grid_propagate(False)
+        av = ctk.CTkFrame(id_frame, fg_color=ACCENT, corner_radius=20, width=40, height=40)
+        av.pack(side="left")
+        av.pack_propagate(False)
         ctk.CTkLabel(
             av, text=initial,
-            font=("Inter", 10, "bold"), text_color="#ffffff",
+            font=("Inter", 16, "bold"), text_color="#ffffff",
         ).place(relx=0.5, rely=0.5, anchor="center")
 
+        name_col = ctk.CTkFrame(id_frame, fg_color="transparent")
+        name_col.pack(side="left", padx=(12, 0))
         ctk.CTkLabel(
-            chip, text=display,
-            font=("Inter", 11, "bold"), text_color=TEXT_PRIMARY,
-        ).grid(row=0, column=1, padx=(6, 10), pady=6)
-
-        # ── Şifre label + entry ───────────────────
-        lbl_row = ctk.CTkFrame(card, fg_color="transparent")
-        lbl_row.grid(row=1, column=0, padx=24, pady=(0, 6), sticky="w")
-
+            name_col, text=display,
+            font=("Inter", 15, "bold"), text_color=TEXT_PRIMARY,
+            anchor="w",
+        ).pack(anchor="w")
         ctk.CTkLabel(
-            lbl_row, text="Şifre",
-            font=("Inter", 12, "bold"), text_color=TEXT_PRIMARY,
-        ).pack(side="left")
+            name_col, text=f"{no}@stu.istinye.edu.tr",
+            font=("Inter", 11), text_color=TEXT_TERTIARY,
+            anchor="w",
+        ).pack(anchor="w")
 
+        # ── Şifre label ───────────────────────────
         ctk.CTkLabel(
-            lbl_row, text="  opsiyonel",
-            font=("Inter", 10), text_color=TEXT_TERTIARY,
-        ).pack(side="left")
+            card, text="Microsoft Şifresi",
+            font=("Inter", 13, "bold"), text_color=TEXT_PRIMARY,
+            anchor="w",
+        ).grid(row=2, column=0, padx=28, pady=(22, 6), sticky="w")
 
+        # ── Şifre entry ───────────────────────────
         self._entry_pwd = ctk.CTkEntry(
             card,
-            placeholder_text="Microsoft şifreniz",
+            placeholder_text="Şifrenizi girin",
             show="•",
             fg_color=BG_BASE, border_color=BORDER, border_width=1,
             text_color=TEXT_PRIMARY, placeholder_text_color=TEXT_TERTIARY,
-            corner_radius=10, font=("Inter", 13), height=46,
+            corner_radius=10, font=("Inter", 14), height=50,
         )
-        self._entry_pwd.grid(row=2, column=0, padx=24, sticky="ew")
+        self._entry_pwd.grid(row=3, column=0, padx=28, sticky="ew")
         self._entry_pwd.bind("<Return>", lambda _: self._start_login())
         self._entry_pwd.focus_set()
 
-        # ── Kısa hint ─────────────────────────────
-        ctk.CTkLabel(
+        # ── Opsiyonel bilgi kutusu ────────────────
+        info_box = ctk.CTkFrame(
             card,
-            text="Opsiyonel — girilirse oturum otomatik başlatılır.",
-            font=("Inter", 10), text_color=TEXT_TERTIARY,
-        ).grid(row=3, column=0, padx=24, pady=(8, 0))
+            fg_color=BG_HOVER, corner_radius=8,
+            border_width=1, border_color=BORDER,
+        )
+        info_box.grid(row=4, column=0, padx=28, pady=(12, 0), sticky="ew")
+        info_box.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkLabel(
+            info_box, text="ⓘ",
+            font=("Inter", 15), text_color=TEXT_SECONDARY,
+        ).grid(row=0, column=0, padx=(14, 0), pady=12, sticky="n")
+
+        ctk.CTkLabel(
+            info_box,
+            text="Şifre opsiyoneldir. Girerseniz giriş otomatik tamamlanır;\ngirmezseniz tarayıcı açılır ve siz manuel giriş yaparsınız.",
+            font=("Inter", 11), text_color=TEXT_SECONDARY,
+            anchor="w", justify="left", wraplength=310,
+        ).grid(row=0, column=1, padx=(10, 14), pady=12, sticky="w")
 
         # ── Giriş Yap butonu ──────────────────────
         self._btn_main = ctk.CTkButton(
             card,
-            text="Giriş Yap  ✓",
+            text="Giriş Yap  →",
             command=self._start_login,
             fg_color=ACCENT, hover_color=_ACCENT_HOVER,
             text_color="#ffffff", corner_radius=10,
-            font=("Inter", 13, "bold"), height=48,
+            font=("Inter", 14, "bold"), height=50,
         )
-        self._btn_main.grid(row=4, column=0, padx=24, pady=(16, 20), sticky="ew")
+        self._btn_main.grid(row=5, column=0, padx=28, pady=(18, 24), sticky="ew")
 
     # ─────────────────────────────────────────────────────────
     # BAĞLANMA EKRANI
@@ -520,11 +616,17 @@ class LoginScreen(ctk.CTkFrame):
     def _validate_step1(self) -> None:
         no = self._entry_no.get().strip()
         if not no:
-            self._set_status("Öğrenci numaranızı girin", DOT_ERROR)
+            self._lbl_email.configure(text="Öğrenci numaranızı girin", text_color=ERROR)
+            self._shake(self._entry_no)
+            return
+        if not no.isdigit():
+            self._lbl_email.configure(text="Sadece sayı kabul ediliyor", text_color=ERROR)
             self._shake(self._entry_no)
             return
         if len(no) != 10:
-            self._set_status("Öğrenci numarası tam 10 haneli olmalıdır", DOT_ERROR)
+            diff = len(no) - 10
+            msg = f"Tam 10 rakam gerekli — {diff} fazla" if diff > 0 else f"Tam 10 rakam gerekli — şu an {len(no)}"
+            self._lbl_email.configure(text=msg, text_color=ERROR)
             self._shake(self._entry_no)
             return
         self._student_no_val = no
@@ -547,6 +649,10 @@ class LoginScreen(ctk.CTkFrame):
     # ─────────────────────────────────────────────────────────
     # AKSIYON
     # ─────────────────────────────────────────────────────────
+
+    def _do_quick_resume(self, session) -> None:
+        if self._on_quick_resume:
+            self._on_quick_resume(session)
 
     def _start_login(self) -> None:
         if self._login_running:
@@ -581,7 +687,8 @@ class LoginScreen(ctk.CTkFrame):
             )
             self.after(0, lambda: self._login_done(student_no, session))
         except Exception as exc:
-            self.after(0, lambda: self._login_error(str(exc)))
+            msg = str(exc)
+            self.after(0, lambda m=msg: self._login_error(m))
         finally:
             loop.close()
 
@@ -612,35 +719,92 @@ class LoginScreen(ctk.CTkFrame):
     def _clear_card(self) -> None:
         for w in self._card.winfo_children():
             w.destroy()
+        tk.Frame(self._card, width=460, height=1, bg=_CARD_BG).grid(row=99, column=0)
 
     def _switch_account(self) -> None:
         clear_remembered_user()
         self._remembered = None
         self._build_step1()
 
-    def _validate_no_key(self, new_val: str) -> bool:
-        """Entry validasyonu: max 10 rakam."""
-        if new_val == "":
-            return True
-        if len(new_val) > 10:
-            return False
-        return new_val.isdigit()
-
     def _on_no_change(self, _event=None) -> None:
-        no = self._entry_no.get()
-        n = len(no)
-        if hasattr(self, "_btn_fill"):
-            self._btn_fill.set_progress(n / 10)
-        if no:
-            self._lbl_email.configure(text=f"→  {no}@stu.istinye.edu.tr")
-            self._entry_no.configure(border_color=ACCENT if n == 10 else BORDER)
+        no    = self._entry_no.get()
+        n     = len(no)
+        valid = no.isdigit() and n == 10
+        dirty = bool(no) and not no.isdigit()
+
+        # Border
+        if dirty:
+            self._entry_no.configure(border_color=ERROR)
+        elif valid:
+            self._entry_no.configure(border_color=ACCENT)
         else:
-            self._lbl_email.configure(text="")
             self._entry_no.configure(border_color=BORDER)
+
+        # Hint — yazarken hata mesajı yok
+        if valid:
+            self._lbl_email.configure(
+                text=f"→  {no}@stu.istinye.edu.tr", text_color=ACCENT,
+            )
+        elif no:
+            self._lbl_email.configure(
+                text=f"{n} / 10", text_color=TEXT_TERTIARY,
+            )
+        else:
+            self._lbl_email.configure(text="", text_color=ACCENT)
+
+        # Buton: ilerleme = karakter sayısı/10 (max 10), renk = geçerliliğe göre
+        if hasattr(self, "_btn_fill"):
+            self._btn_fill.set_fill_color(ACCENT if not dirty else ERROR)
+            self._btn_fill.set_progress(min(n, 10) / 10)
 
     def _shake(self, widget) -> None:
         widget.configure(border_color=ERROR)
         self.after(800, lambda: widget.configure(border_color=BORDER))
+
+    def show_syncing(self) -> None:
+        """Login bitti, dersler yüklenirken spinner'ı yeniden canlandır."""
+        if hasattr(self, "_lbl_connecting") and self._lbl_connecting.winfo_exists():
+            self._lbl_connecting.configure(text="Dersler yükleniyor...")
+        self._set_status("Dersler yükleniyor...", DOT_BUSY)
+        self._spinner_active = True
+        self._animate_spinner()
+
+    def set_sync_total(self, total: int) -> None:
+        self._sync_done  = 0
+        self._sync_total = total
+        self._sync_eta   = 0
+        self._sync_tick_running = False
+        msg = f"0 / {total} ders tarandı"
+        if hasattr(self, "_lbl_connecting") and self._lbl_connecting.winfo_exists():
+            self._lbl_connecting.configure(text=msg)
+        self._set_status(f"{total} ders bulundu, taranıyor...", DOT_BUSY)
+
+    def update_sync_progress(self, done: int, total: int, eta_s: int = 0) -> None:
+        self._sync_done  = done
+        self._sync_total = total
+        self._sync_eta   = eta_s
+        if not getattr(self, "_sync_tick_running", False):
+            self._sync_tick_running = True
+            self._tick_sync()
+
+    def _tick_sync(self) -> None:
+        lbl = getattr(self, "_lbl_connecting", None)
+        if lbl is None or not lbl.winfo_exists():
+            self._sync_tick_running = False
+            return
+        done  = getattr(self, "_sync_done",  0)
+        total = getattr(self, "_sync_total", 0)
+        eta   = getattr(self, "_sync_eta",   0)
+        eta_str = f" · ~{eta}s kaldı" if eta > 2 else ""
+        msg = f"{done} / {total} ders tarandı{eta_str}"
+        lbl.configure(text=msg)
+        self._lbl_status.configure(text=msg, text_color=DOT_BUSY)
+        self._dot.configure(text_color=DOT_BUSY)
+        if eta > 0:
+            self._sync_eta = eta - 1
+            self.after(1000, self._tick_sync)
+        else:
+            self._sync_tick_running = False
 
     def _set_status_thread(self, msg: str) -> None:
         self.after(0, lambda m=msg: self._set_status(m, DOT_BUSY))
