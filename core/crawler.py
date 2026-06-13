@@ -71,7 +71,7 @@ class BlackboardCrawler:
             f"{BB_API}/users/me/courses"
             "?limit=100"
             "&fields=courseId,id,course.name,course.courseId,"
-            "course.availability,course.ultraStatus"
+            "course.availability,course.ultraStatus,course.contacts"
         )
         courses: dict[str, Course] = {}
 
@@ -86,12 +86,12 @@ class BlackboardCrawler:
                 if avail != "Yes":
                     continue
 
-                cid  = entry.get("courseId") or course_data.get("courseId", "")
+                cid  = course_data.get("courseId") or entry.get("courseId", "")
                 name = course_data.get("name", "Bilinmeyen Ders")
                 url_path = f"{BB_ULTRA}/courses/{entry.get('id', '')}/outline"
 
                 courses[cid] = Course(
-                    id=entry.get("id", cid),
+                    id=entry.get("courseId") or entry.get("id", cid),
                     name=name,
                     url=url_path,
                     course_code=course_data.get("courseId", ""),
@@ -108,21 +108,20 @@ class BlackboardCrawler:
     def crawl_course(self, course: Course, all_courses: dict[str, Course]) -> None:
         """Bir kursun tüm içerik ağacını keşfeder, manifest'i günceller."""
         self._status(f"Taranıyor: {course.name}")
-        update_course_status(course.id, CourseStatus.CRAWLING)
+        manifest_key = course.course_code or course.id
+        update_course_status(manifest_key, CourseStatus.CRAWLING)
 
         try:
             items = self._crawl_contents(course.id, parent_hint="")
             course.items = {item.id: item for item in items}
-            course.instructors = self._get_instructors(course.id)
+            course.instructors = self._get_instructors(course.course_code or course.id)
             course.status = CourseStatus.CRAWLED
-            all_courses[course.course_code or course.id] = course
+            all_courses[manifest_key] = course
             save_manifest(all_courses)
-            self._status(
-                f"{course.name}: {len(items)} içerik bulundu"
-            )
+            self._status(f"{course.name}: {len(items)} içerik bulundu")
         except Exception as exc:
             course.status = CourseStatus.CRAWL_FAILED
-            all_courses[course.course_code or course.id] = course
+            all_courses[manifest_key] = course
             save_manifest(all_courses)
             self._status(f"{course.name}: tarama hatası — {exc}")
 
@@ -193,26 +192,36 @@ class BlackboardCrawler:
 
         return items
 
+    _INSTRUCTOR_ROLES = {"Instructor", "TeachingAssistant", "CourseBuilder", "P"}
+
     def _get_instructors(self, course_id: str) -> list[str]:
-        """Kursun öğretim görevlisi adlarını çeker."""
-        url  = (
-            f"{BB_API}/courses/{course_id}/users"
-            "?role=Instructor&limit=10"
-            "&fields=user.name.given,user.name.family,courseRoleId"
-        )
-        data = self._get(url)
-        if not data:
+        """Hoca adlarını çeker. External ID ise courseId: prefix kullanır, pagination yapar."""
+        try:
+            prefix = "" if course_id.startswith("_") else "courseId:"
+            url: Optional[str] = (
+                f"{BB_API}/courses/{prefix}{course_id}/users"
+                "?limit=100&expand=user"
+            )
+            names: list[str] = []
+            while url:
+                resp = self._session.get(url, timeout=8)
+                if resp.status_code != 200:
+                    return []
+                data = resp.json()
+                for entry in data.get("results", []):
+                    if entry.get("courseRoleId") not in self._INSTRUCTOR_ROLES:
+                        continue
+                    user = entry.get("user", {})
+                    nm   = user.get("name", {})
+                    full = f"{nm.get('given','').strip()} {nm.get('family','').strip()}".strip()
+                    if full:
+                        names.append(full)
+                if names:
+                    return names  # Hocaları bulduk, aramaya devam etme
+                url = self._next_page(data)
+            return names
+        except Exception:
             return []
-        names = []
-        for entry in data.get("results", []):
-            user = entry.get("user", {})
-            name = user.get("name", {})
-            given  = name.get("given", "").strip()
-            family = name.get("family", "").strip()
-            full   = f"{given} {family}".strip()
-            if full:
-                names.append(full)
-        return names
 
     def _get_attachments(self, course_id: str, content_id: str) -> list[dict]:
         """Bir içeriğin dosya attachment'larını çeker."""
@@ -249,9 +258,11 @@ class BlackboardCrawler:
                 resp = self._session.get(url, timeout=REQUEST_TIMEOUT)
                 if resp.status_code == 200:
                     return resp.json()
-                if resp.status_code in (401, 403):
+                if resp.status_code == 401:
                     self._status("Oturum süresi dolmuş — yeniden giriş gerekiyor")
                     return None
+                if resp.status_code == 403:
+                    return None  # yetkisiz endpoint, sessiz geç
                 if resp.status_code == 404:
                     return None
             except requests.RequestException as exc:
