@@ -8,10 +8,10 @@ import customtkinter as ctk
 
 from core.models import Course, DownloadFilter, Item, ItemType
 from gui.theme import (
-    ACCENT, BG_BASE,
+    ACCENT, ACCENT_BG, BG_BASE, BG_ELEVATED, BG_HOVER, BORDER, BORDER_FAINT,
     BTN_GHOST, BTN_PRIMARY,
-    FONT_HEADING,
-    SUCCESS, TEXT_PRIMARY,
+    FONT_HEADING, FONT_SMALL,
+    SUCCESS, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_TERTIARY,
 )
 
 _DEFAULT_DIR = Path.home() / "Downloads" / "Blackboard"
@@ -332,21 +332,26 @@ class FilterScreen(ctk.CTkFrame):
         self._build_footer()
 
     def _build_header(self) -> None:
-        hdr = ctk.CTkFrame(self, fg_color="#0a0f1e", corner_radius=0, height=56)
+        hdr = ctk.CTkFrame(self, fg_color=BG_ELEVATED, corner_radius=0, height=52)
         hdr.grid(row=0, column=0, sticky="ew")
         hdr.grid_columnconfigure(1, weight=1)
         hdr.grid_propagate(False)
 
-        ctk.CTkButton(hdr, text="← Geri", command=self._on_back, **BTN_GHOST).grid(
-            row=0, column=0, padx=14, pady=12, sticky="w")
+        ctk.CTkButton(hdr, text="← Geri", command=self._on_back,
+                      fg_color="transparent", hover_color=BG_HOVER,
+                      text_color=TEXT_SECONDARY, border_color=BORDER, border_width=1,
+                      corner_radius=8, font=("Inter", 12), height=34, width=84,
+                      ).grid(row=0, column=0, padx=12, pady=9, sticky="w")
 
-        title_row = ctk.CTkFrame(hdr, fg_color="transparent")
-        title_row.grid(row=0, column=1)
-        ctk.CTkLabel(title_row, text="⚙", font=("Inter", 15), text_color=ACCENT).pack(side="left", padx=(0, 6))
-        ctk.CTkLabel(title_row, text="İndirme Ayarları", font=FONT_HEADING, text_color=TEXT_PRIMARY).pack(side="left")
+        badge = ctk.CTkFrame(hdr, fg_color=BG_BASE, corner_radius=20)
+        badge.grid(row=0, column=1)
+        ctk.CTkLabel(badge, text="⚙  İNDİRME AYARLARI",
+                     font=("Inter", 10, "bold"), text_color=ACCENT,
+                     ).pack(padx=14, pady=6)
 
-        ctk.CTkButton(hdr, text="Sıfırla", command=self._reset, **BTN_GHOST).grid(row=0, column=2, padx=14)
-        ctk.CTkFrame(hdr, height=1, fg_color="#141e32", corner_radius=0).grid(row=1, column=0, columnspan=3, sticky="ew")
+        ctk.CTkButton(hdr, text="Sıfırla", command=self._reset, **BTN_GHOST).grid(row=0, column=2, padx=12)
+        ctk.CTkFrame(hdr, height=1, fg_color=BORDER, corner_radius=0).place(
+            relx=0, rely=1.0, relwidth=1.0, anchor="sw")
 
     def _build_content(self) -> None:
         scroll = ctk.CTkScrollableFrame(
@@ -362,12 +367,12 @@ class FilterScreen(ctk.CTkFrame):
         ctk.CTkFrame(scroll, height=16, fg_color="transparent").grid(row=2, column=0)
 
     def _build_footer(self) -> None:
-        footer = ctk.CTkFrame(self, fg_color="#0a0f1e", corner_radius=0, height=64)
+        footer = ctk.CTkFrame(self, fg_color=BG_ELEVATED, corner_radius=0, height=64)
         footer.grid(row=2, column=0, sticky="ew")
         footer.grid_columnconfigure(1, weight=1)
         footer.grid_propagate(False)
 
-        ctk.CTkFrame(footer, height=1, fg_color="#141e32", corner_radius=0).grid(
+        ctk.CTkFrame(footer, height=1, fg_color=BORDER, corner_radius=0).grid(
             row=0, column=0, columnspan=3, sticky="ew")
 
         # Sol: hız seçici
@@ -395,8 +400,8 @@ class FilterScreen(ctk.CTkFrame):
 
     def _build_controls_card(self, parent, row: int) -> None:
         """Dosya türleri + video seçeneği tek kompakt kart."""
-        card = ctk.CTkFrame(parent, fg_color="#0d1120", corner_radius=12,
-                            border_width=1, border_color="#141e35")
+        card = ctk.CTkFrame(parent, fg_color=BG_ELEVATED, corner_radius=12,
+                            border_width=1, border_color=BORDER)
         card.grid(row=row, column=0, sticky="ew", padx=18, pady=(14, 0))
         card.grid_columnconfigure(0, weight=1)
 
@@ -441,7 +446,7 @@ class FilterScreen(ctk.CTkFrame):
         self._video_section.grid_columnconfigure(0, weight=1)
 
         # Ayırıcı
-        ctk.CTkFrame(self._video_section, height=1, fg_color="#141e35").grid(
+        ctk.CTkFrame(self._video_section, height=1, fg_color=BORDER).grid(
             row=0, column=0, sticky="ew", pady=(0, 8))
 
         vid_row = ctk.CTkFrame(self._video_section, fg_color="transparent")
@@ -450,8 +455,8 @@ class FilterScreen(ctk.CTkFrame):
         ctk.CTkLabel(vid_row, text="Kayıt", font=("Inter", 10, "bold"),
                      text_color=_OFF_TXT, width=36).pack(side="left", padx=(0, 8))
 
-        seg_wrap = ctk.CTkFrame(vid_row, fg_color="#070d18", corner_radius=8,
-                                border_width=1, border_color="#141e35", height=36)
+        seg_wrap = ctk.CTkFrame(vid_row, fg_color=BG_BASE, corner_radius=8,
+                                border_width=1, border_color=BORDER, height=36)
         seg_wrap.pack(side="left", fill="x", expand=True)
         seg_wrap.pack_propagate(False)
 
@@ -498,8 +503,8 @@ class FilterScreen(ctk.CTkFrame):
     # ── Dosya Listesi ─────────────────────────────────────────
 
     def _build_tree_section(self, parent, row: int) -> None:
-        outer = ctk.CTkFrame(parent, fg_color="#0d1120", corner_radius=12,
-                             border_width=1, border_color="#141e35")
+        outer = ctk.CTkFrame(parent, fg_color=BG_ELEVATED, corner_radius=12,
+                             border_width=1, border_color=BORDER)
         outer.grid(row=row, column=0, sticky="ew", padx=18, pady=(14, 0))
         outer.grid_columnconfigure(0, weight=1)
 
@@ -507,7 +512,7 @@ class FilterScreen(ctk.CTkFrame):
         hdr.grid(row=0, column=0, padx=14, pady=(12, 6), sticky="w")
         ctk.CTkFrame(hdr, width=3, height=14, corner_radius=2, fg_color=ACCENT).pack(side="left", padx=(0, 8))
         ctk.CTkLabel(hdr, text="🗂", font=("Inter", 11), text_color=ACCENT).pack(side="left", padx=(0, 5))
-        ctk.CTkLabel(hdr, text="DOSYALAR", font=("Inter", 10, "bold"), text_color="#3a5a78").pack(side="left")
+        ctk.CTkLabel(hdr, text="DOSYALAR", font=("Inter", 10, "bold"), text_color=TEXT_TERTIARY).pack(side="left")
 
         inner = ctk.CTkFrame(outer, fg_color="transparent")
         inner.grid(row=1, column=0, sticky="ew", padx=14, pady=(0, 14))
@@ -515,7 +520,7 @@ class FilterScreen(ctk.CTkFrame):
         outer = inner
 
         # Dış scroll'a dahil — iç scroll yok, çakışma olmaz
-        self._list_frame = ctk.CTkFrame(outer, fg_color="#080e1a", corner_radius=8)
+        self._list_frame = ctk.CTkFrame(outer, fg_color=BG_BASE, corner_radius=8)
         self._list_frame.grid(row=0, column=0, sticky="ew")
         self._list_frame.grid_columnconfigure(0, weight=1)
 
@@ -539,15 +544,15 @@ class FilterScreen(ctk.CTkFrame):
                 continue
 
             # Ders başlığı
-            hdr = tk.Frame(self._list_frame, bg="#0a0f1e")
+            hdr = tk.Frame(self._list_frame, bg=BG_ELEVATED)
             hdr.grid(row=row_idx, column=0, sticky="ew", pady=(10 if row_idx > 0 else 4, 2))
-            tk.Label(hdr, text=f"📚  {course.name}", bg="#0a0f1e",
-                     fg="#e2eaf6", font=("Inter", 12, "bold"),
+            tk.Label(hdr, text=f"📚  {course.name}", bg=BG_ELEVATED,
+                     fg=TEXT_PRIMARY, font=("Inter", 12, "bold"),
                      anchor="w", padx=12).pack(fill="x")
             row_idx += 1
 
             # Ayırıcı çizgi
-            tk.Frame(self._list_frame, bg="#141e35", height=1).grid(
+            tk.Frame(self._list_frame, bg=BORDER, height=1).grid(
                 row=row_idx, column=0, sticky="ew", padx=10, pady=(0, 4))
             row_idx += 1
 
@@ -562,7 +567,7 @@ class FilterScreen(ctk.CTkFrame):
                     if parts:
                         path_prefix = "  /  ".join(parts) + "  /  "
 
-                row_frame = tk.Frame(self._list_frame, bg="#080e1a", cursor="hand2")
+                row_frame = tk.Frame(self._list_frame, bg=BG_BASE, cursor="hand2")
                 row_frame.grid(row=row_idx, column=0, sticky="ew")
                 row_frame.grid_columnconfigure(1, weight=1)
 
@@ -570,7 +575,7 @@ class FilterScreen(ctk.CTkFrame):
                 chk_lbl = tk.Label(
                     row_frame,
                     text="☑" if checked else "☐",
-                    bg="#080e1a",
+                    bg=BG_BASE,
                     fg=_ON_TXT if checked else _OFF_TXT,
                     font=("Inter", 13), cursor="hand2", width=3,
                 )
@@ -581,8 +586,8 @@ class FilterScreen(ctk.CTkFrame):
                 name_lbl = tk.Label(
                     row_frame,
                     text=f"{icon}  {path_prefix}{item.name}",
-                    bg="#080e1a",
-                    fg="#7a9ab8" if checked else "#253040",
+                    bg=BG_BASE,
+                    fg=TEXT_SECONDARY if checked else "#253040",
                     font=("Inter", 11), anchor="w", cursor="hand2",
                 )
                 name_lbl.grid(row=0, column=1, sticky="w", padx=(0, 8))
@@ -591,19 +596,19 @@ class FilterScreen(ctk.CTkFrame):
                 size_lbl = tk.Label(
                     row_frame,
                     text=self._fmt_size(item.size_bytes),
-                    bg="#080e1a",
-                    fg=_OFF_TXT if checked else "#1a2840",
+                    bg=BG_BASE,
+                    fg=TEXT_TERTIARY if checked else "#1a2840",
                     font=("Inter", 10), anchor="e", cursor="hand2",
                 )
                 size_lbl.grid(row=0, column=2, padx=(0, 12), sticky="e")
 
                 # Hover efekti
                 def _enter(e, f=row_frame):
-                    for w in f.winfo_children(): w.configure(bg="#0c1628")
-                    f.configure(bg="#0c1628")
+                    for w in f.winfo_children(): w.configure(bg=BG_HOVER)
+                    f.configure(bg=BG_HOVER)
                 def _leave(e, f=row_frame):
-                    for w in f.winfo_children(): w.configure(bg="#080e1a")
-                    f.configure(bg="#080e1a")
+                    for w in f.winfo_children(): w.configure(bg=BG_BASE)
+                    f.configure(bg=BG_BASE)
 
                 # Tıklama
                 iid = item.id
@@ -613,8 +618,8 @@ class FilterScreen(ctk.CTkFrame):
                     new_checked = not now
                     c_lbl.configure(text="☑" if new_checked else "☐",
                                     fg=_ON_TXT if new_checked else _OFF_TXT)
-                    n_lbl.configure(fg="#7a9ab8" if new_checked else "#253040")
-                    s_lbl.configure(fg=_OFF_TXT if new_checked else "#1a2840")
+                    n_lbl.configure(fg=TEXT_SECONDARY if new_checked else "#253040")
+                    s_lbl.configure(fg=TEXT_TERTIARY if new_checked else "#1a2840")
                     self._update_summary()
 
                 for w in (row_frame, chk_lbl, name_lbl, size_lbl):
