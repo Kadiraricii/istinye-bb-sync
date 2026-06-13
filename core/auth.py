@@ -75,6 +75,10 @@ class BlackboardAuth:
         self._status("Giriş bekleniyor...")
         await self._wait_for_dashboard()
 
+        self._status("Ders sayfası yükleniyor...")
+        await self._navigate(f"{BB_ULTRA}/course")
+        await asyncio.sleep(1.5)   # sayfanın cookie set etmesi için bekle
+
         self._status("Cookie'ler alınıyor...")
         self._session = await self._build_session()
 
