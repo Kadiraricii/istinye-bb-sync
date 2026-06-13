@@ -178,6 +178,9 @@ class App:
             ctk.CTkButton(
                 r, text="Yeniden İndir", command=_redownload, **BTN_PRIMARY,
             ).grid(row=0, column=1, padx=(4, 0), sticky="ew")
+            self._root.attributes("-topmost", False)
+            popup.after(50, lambda: (popup.lift(), popup.focus_force()))
+            popup.bind("<Destroy>", lambda _: self._root.attributes("-topmost", True), add="+")
             return
 
         self._start_progress_screen(pending_total)
