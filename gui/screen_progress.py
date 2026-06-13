@@ -133,30 +133,30 @@ class ProgressScreen(ctk.CTkFrame):
         pill.pack(side="left", padx=(0, 8))
 
         self._btn_pin = ctk.CTkButton(
-            pill, text="📌", command=self._toggle_top,
+            pill, text="📌  Sabitle", command=self._toggle_top,
             fg_color="transparent", hover_color=BG_HOVER,
             text_color=TEXT_TERTIARY, corner_radius=6,
-            font=("Inter", 14), height=34, width=38,
+            font=("Inter", 11), height=34, width=90,
         )
         self._btn_pin.pack(side="left")
 
         ctk.CTkFrame(pill, fg_color=BORDER, width=1, height=18).pack(side="left")
 
         self._btn_compact = ctk.CTkButton(
-            pill, text="⬛", command=self._toggle_compact,
+            pill, text="⬛  Küçült", command=self._toggle_compact,
             fg_color="transparent", hover_color=BG_HOVER,
             text_color=TEXT_TERTIARY, corner_radius=6,
-            font=("Inter", 14), height=34, width=38,
+            font=("Inter", 11), height=34, width=90,
         )
         self._btn_compact.pack(side="left")
 
         ctk.CTkFrame(pill, fg_color=BORDER, width=1, height=18).pack(side="left")
 
         self._btn_pause = ctk.CTkButton(
-            pill, text="⏸", command=self._pause_resume,
+            pill, text="⏸  Duraklat", command=self._pause_resume,
             fg_color="transparent", hover_color=BG_HOVER,
             text_color=TEXT_TERTIARY, corner_radius=6,
-            font=("Inter", 14), height=34, width=38,
+            font=("Inter", 11), height=34, width=100,
         )
         self._btn_pause.pack(side="left")
 
@@ -173,11 +173,11 @@ class ProgressScreen(ctk.CTkFrame):
         )
 
         # Tooltips
-        _Tooltip(self._btn_back,    "Kurs listesine geri dön")
-        _Tooltip(self._btn_pin,     "Pencereyi her zaman üstte tut")
-        _Tooltip(self._btn_compact, "Pencereyi küçük bara daralt")
-        _Tooltip(self._btn_pause,   "İndirmeyi duraklat / devam ettir")
-        _Tooltip(self._btn_cancel,  "İndirmeyi iptal et")
+        _Tooltip(self._btn_back,    "Kurs listesine geri dön  [Esc]")
+        _Tooltip(self._btn_pin,     "Pencereyi her zaman üstte tut / serbest bırak")
+        _Tooltip(self._btn_compact, "Küçük bara daralt / genişlet")
+        _Tooltip(self._btn_pause,   "İndirmeyi duraklat veya devam ettir")
+        _Tooltip(self._btn_cancel,  "İndirmeyi tamamen iptal et")
 
     # ── Hero: counter + bar + status ──────────────────────────
 
@@ -547,6 +547,9 @@ class ProgressScreen(ctk.CTkFrame):
         ctk.CTkButton(
             r, text="Devam et", command=popup.destroy, **BTN_PRIMARY,
         ).grid(row=0, column=1, padx=(4, 0), sticky="ew")
+        self._master.attributes("-topmost", False)
+        popup.after(50, lambda: (popup.lift(), popup.focus_force()))
+        popup.bind("<Destroy>", lambda _: self._master.attributes("-topmost", self._on_top), add="+")
 
     # ── Summary popup ─────────────────────────────────────────
 
@@ -560,7 +563,7 @@ class ProgressScreen(ctk.CTkFrame):
 
         popup = ctk.CTkToplevel(self._master)
         popup.title("İndirme Tamamlandı")
-        popup.geometry("380x340")
+        popup.geometry("380x400")
         popup.resizable(False, False)
         popup.grab_set()
         popup.attributes("-topmost", True)
@@ -570,8 +573,8 @@ class ProgressScreen(ctk.CTkFrame):
 
         ctk.CTkLabel(
             popup, text="✓",
-            font=("Inter", 52, "bold"), text_color=SUCCESS,
-        ).pack(pady=(22, 2))
+            font=("Inter", 44, "bold"), text_color=SUCCESS,
+        ).pack(pady=(16, 2))
 
         ctk.CTkLabel(
             popup, text="İndirme Tamamlandı",
@@ -581,7 +584,7 @@ class ProgressScreen(ctk.CTkFrame):
         ctk.CTkLabel(
             popup, text=f"{downloaded + failed + skipped} öğe işlendi",
             font=FONT_SMALL, text_color=TEXT_TERTIARY,
-        ).pack(pady=(4, 14))
+        ).pack(pady=(4, 12))
 
         card = ctk.CTkFrame(popup, fg_color=BG_BASE, corner_radius=8, border_width=1, border_color=BORDER)
         card.pack(fill="x", padx=28)
@@ -592,13 +595,13 @@ class ProgressScreen(ctk.CTkFrame):
             (TEXT_TERTIARY,                              "↷", str(skipped),   "atlandı"),
         ]:
             r = ctk.CTkFrame(card, fg_color="transparent")
-            r.pack(fill="x", padx=16, pady=6)
+            r.pack(fill="x", padx=16, pady=5)
             ctk.CTkLabel(r, text=icon, font=("Inter", 14), text_color=color, width=24, anchor="center").pack(side="left")
             ctk.CTkLabel(r, text=value, font=("Inter", 14, "bold"), text_color=TEXT_PRIMARY, width=40, anchor="w").pack(side="left", padx=(8, 4))
             ctk.CTkLabel(r, text=label, font=FONT_BODY, text_color=TEXT_SECONDARY, anchor="w").pack(side="left")
 
         btn_row = ctk.CTkFrame(popup, fg_color="transparent")
-        btn_row.pack(fill="x", padx=28, pady=18)
+        btn_row.pack(fill="x", padx=28, pady=(14, 20))
         btn_row.grid_columnconfigure(0, weight=1)
         btn_row.grid_columnconfigure(1, weight=1)
 
@@ -608,17 +611,20 @@ class ProgressScreen(ctk.CTkFrame):
 
         ctk.CTkButton(btn_row, text="Geri Dön", command=_done, **BTN_SECONDARY).grid(row=0, column=0, padx=(0, 4), sticky="ew")
         ctk.CTkButton(btn_row, text="Kapat",    command=_done, **BTN_PRIMARY).grid(row=0, column=1, padx=(4, 0), sticky="ew")
+        self._master.attributes("-topmost", False)
+        popup.after(50, lambda: (popup.lift(), popup.focus_force()))
+        popup.bind("<Destroy>", lambda _: self._master.attributes("-topmost", self._on_top), add="+")
 
     # ── Controls ──────────────────────────────────────────────
 
     def _pause_resume(self) -> None:
         self._paused = not self._paused
         if self._paused:
-            self._btn_pause.configure(text="▶")
+            self._btn_pause.configure(text="▶  Devam Et")
             self._on_pause()
             self._log_insert("⏸  Duraklatıldı\n", "warning")
         else:
-            self._btn_pause.configure(text="⏸")
+            self._btn_pause.configure(text="⏸  Duraklat")
             self._on_resume()
             self._log_insert("▶  Devam edildi\n", "accent")
 
@@ -650,11 +656,15 @@ class ProgressScreen(ctk.CTkFrame):
             text_color="#fca5a5", corner_radius=6, font=FONT_SMALL, height=36, width=140,
         ).pack(side="left", padx=6)
         ctk.CTkButton(r, text="Devam et", command=popup.destroy, **BTN_SECONDARY).pack(side="left", padx=6)
+        self._master.attributes("-topmost", False)
+        popup.after(50, lambda: (popup.lift(), popup.focus_force()))
+        popup.bind("<Destroy>", lambda _: self._master.attributes("-topmost", self._on_top), add="+")
 
     def _toggle_top(self) -> None:
         self._on_top = not self._on_top
         self._master.attributes("-topmost", self._on_top)
         self._btn_pin.configure(
+            text="📌  Sabitle" if self._on_top else "📌  Serbest",
             text_color=ACCENT if self._on_top else TEXT_TERTIARY,
         )
 
@@ -678,21 +688,53 @@ class ProgressScreen(ctk.CTkFrame):
 
 
 class _Tooltip:
-    """Basit hover tooltip — CTk widget'larına bağlanır."""
+    """Hover tooltip — CTkButton iç canvas hiyerarşisine uyumlu."""
 
     _TIP_BG  = "#0d1120"
     _TIP_FG  = "#94a3b8"
     _TIP_BD  = "#1e2a3a"
 
     def __init__(self, widget: ctk.CTkBaseClass, text: str) -> None:
-        self._widget = widget
-        self._text   = text
+        self._widget   = widget
+        self._text     = text
         self._win: tk.Toplevel | None = None
-        widget.bind("<Enter>",       self._show, add="+")
-        widget.bind("<Leave>",       self._hide, add="+")
-        widget.bind("<ButtonPress>", self._hide, add="+")
+        self._after_id: Optional[str] = None
+        self._bind_tree(widget)
+
+    def _bind_tree(self, w) -> None:
+        """Widget ve tüm child'larına event binding yap (CTk iç canvas için)."""
+        try:
+            w.bind("<Enter>",       self._on_enter, add="+")
+            w.bind("<Leave>",       self._on_leave, add="+")
+            w.bind("<ButtonPress>", self._hide,     add="+")
+            for child in w.winfo_children():
+                self._bind_tree(child)
+        except Exception:
+            pass
+
+    def _on_enter(self, _event=None) -> None:
+        if self._after_id:
+            self._widget.after_cancel(self._after_id)
+        self._after_id = self._widget.after(350, self._show)
+
+    def _on_leave(self, event=None) -> None:
+        # Cursor hâlâ ana widget sınırları içindeyse gizleme (iç canvas'a geçiş)
+        try:
+            if event:
+                w = self._widget
+                wx, wy = w.winfo_rootx(), w.winfo_rooty()
+                if wx <= event.x_root <= wx + w.winfo_width() and \
+                   wy <= event.y_root <= wy + w.winfo_height():
+                    return
+        except Exception:
+            pass
+        if self._after_id:
+            self._widget.after_cancel(self._after_id)
+            self._after_id = None
+        self._hide()
 
     def _show(self, _event=None) -> None:
+        self._after_id = None
         if self._win:
             return
         w = self._widget
@@ -715,8 +757,10 @@ class _Tooltip:
         self._win.update_idletasks()
         tw = self._win.winfo_width()
         self._win.geometry(f"+{x - tw // 2}+{y}")
+        self._win.lift()
 
     def _hide(self, _event=None) -> None:
+        self._after_id = None
         if self._win:
             self._win.destroy()
             self._win = None
