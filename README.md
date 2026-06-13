@@ -58,23 +58,15 @@ Blackboard'daki her derse tek tek girip dosya indirmek yerine, bu araç tüm der
 
 ### 1. Login
 
-Login ekranı sıfırdan tasarlandı — hem ilk kullanımda hem sonraki açılışlarda sürtünmesiz çalışacak şekilde.
+Giriş iki adımdan oluşur: öğrenci numarası (yalnızca 10 haneli sayı) ve şifre. Şifre zorunlu değildir — girilmezse tarayıcı açılır, kullanıcı kendisi doldurur. Şifre hiçbir zaman diske yazılmaz.
 
-**İlk açılışta** iki adım var:
+Öğrenci numarası ilk girişten sonra kaydedilir. Sonraki açılışlarda profil kartı doğrudan gösterilir; tek tıkla şifre adımına geçilir. Hesap değiştirmek için "Farklı hesap kullan" seçeneği her zaman mevcuttur.
 
-1. **Öğrenci numarası** — Alan sadece rakam kabul eder; harf veya özel karakter girmeye çalışınca ekran hafifçe titrer. Kaç karakter girildiği anlık gösterilir (örn. `7 / 10`). Altındaki büyük buton, yazılan karakter sayısına göre soldan sağa "su dolar gibi" dolar; 10 rakam tamamlanınca tam dolu hâle gelir ve otomatik ilerler.
+Session 1 saatten gençse tarayıcı açılmaz — tek tıkla ders seçim ekranına geçilir.
 
-2. **Şifre** — Şifre girmek zorunlu değil. Bilgi kutusu şunu söyler: girilirse giriş otomatik tamamlanır; girilmezse tarayıcı açılır ve kullanıcı kendisi doldurur. Şifre hiçbir zaman diske yazılmaz.
+Giriş sırasında MFA gerekiyorsa (telefon onayı, Authenticator vb.) kullanıcı halleder, uygulama bekler. `Tarayıcıyı Göster` butonu tarayıcıyı ön plana alır. Giriş başarısız olursa tarayıcı açık kalır, hata ekranda gösterilir.
 
-**Sonraki açılışlarda** öğrenci numarası `remember.json`'a kaydedildiği için doğrudan profil kartı görünür — adı, avatar rengi ve üniversite uzantısıyla. Bir tıkla şifre adımına geçilir. Farklı hesap kullanmak isteyenler için "Farklı hesap kullan" linki her zaman görünür.
-
-**Oturum hâlâ geçerliyse** (son login 1 saatten az önce yapıldıysa) ekranın altında `⚡ Önceki oturumla devam et · 5dk önce` butonu belirir. Bu butona tıklamak tarayıcı açmadan, şifre girmeden doğrudan ders seçim ekranına taşır.
-
-Giriş başladığında bağlantı ekranı açılır: dönen animasyon ve durum mesajı. Microsoft Azure AD SSO sayfası yüklenir. MFA gerekiyorsa (telefon onayı, Authenticator vs.) kullanıcı halleder — uygulama bekler. İsteyenler `Tarayıcıyı Göster →` butonuyla tarayıcıyı ön plana alabilir.
-
-Şifre yanlış girildiyse veya giriş başarısız olursa tarayıcı kapanmaz; hata mesajı gösterilir ve kullanıcı tarayıcıdan düzeltebilir.
-
-Login tamamlanınca `BbRouter` session cookie'si alınır ve şifrelenmiş olarak `data/session.json`'a kaydedilir. Tarayıcı kapanır; bundan sonra her şey arka planda `requests` ile çalışır.
+Login tamamlanınca `BbRouter` session cookie'si alınır ve `data/session.json`'a kaydedilir. Tarayıcı kapanır; bundan sonra tüm istekler arka planda `requests` ile yapılır.
 
 ### 2. İçerik Keşfi (Crawler)
 
