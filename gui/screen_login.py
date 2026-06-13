@@ -178,7 +178,7 @@ class LoginScreen(ctk.CTkFrame):
             return None
         session, saved_at = result
         age_hours = (datetime.now() - saved_at).total_seconds() / 3600
-        if age_hours > 0.5:
+        if age_hours > 1.0:
             return None
         return session, saved_at
 
