@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import tempfile
+import threading
 from pathlib import Path, PurePosixPath
 from typing import Callable, Optional
 
@@ -56,7 +57,7 @@ class BlackboardDownloader:
         self._on_course_status  = on_course_status
         self._semaphore:   Optional[asyncio.Semaphore] = None
         self._cancelled    = False
-        self._paused       = asyncio.Event()
+        self._paused       = threading.Event()
         self._paused.set()                          # başlangıçta çalışıyor
         self._link_locks:  dict[Path, asyncio.Lock] = {}
 
@@ -97,6 +98,23 @@ class BlackboardDownloader:
     def resume(self) -> None:
         self._paused.set()
 
+    @staticmethod
+    def _already_done(item: Item, progress: dict) -> bool:
+        """Daha önce indirilmiş mi? Dosya/klasör hâlâ diskte varsa True."""
+        status = progress.get(item.id, {}).get("status")
+        if status == "skipped":
+            return True
+        if status == "downloaded":
+            local = progress.get(item.id, {}).get("local_path", "")
+            if not local:
+                return False
+            p = Path(local)
+            if item.type in (ItemType.VIDEO_SHAREPOINT, ItemType.VIDEO_OTHER):
+                # Videolar için local_path bir klasördür — içinde dosya varsa tamam
+                return p.is_dir() and any(p.iterdir())
+            return p.exists()
+        return False
+
     # ── Kurs Seviyesi ─────────────────────────────────────────
 
     async def _download_course(self, course: Course) -> None:
@@ -104,15 +122,30 @@ class BlackboardDownloader:
         course_dir.mkdir(parents=True, exist_ok=True)
 
         progress = load_progress()
+        raw_list = list(course.items.values())
+        raw = len(raw_list)
+
         items = [
-            it for it in course.items.values()
+            it for it in raw_list
             if self._filter.allows_item(it)
-            and progress.get(it.id, {}).get("status") not in ("downloaded", "skipped")
+            and not self._already_done(it, progress)
         ]
 
         total = len(items)
         done  = 0
-        self._status(f"{course.name}: {total} öğe")
+
+        if raw == 0:
+            self._status(f"⚠ {course.friendly_title or course.name}: içerik bulunamadı")
+        elif total == 0:
+            already = sum(
+                1 for it in raw_list
+                if progress.get(it.id, {}).get("status") in ("downloaded", "skipped")
+            )
+            if already == raw:
+                self._status(f"— {course.friendly_title or course.name}: zaten indirilmiş ({raw} dosya)")
+            else:
+                self._status(f"⚠ {course.friendly_title or course.name}: hiçbir dosya indirme listesine girmedi")
+        # Normal case: course header appears via on_course_status("active")
 
         if self._on_course_status:
             self._on_course_status(course.id, "active")
@@ -120,7 +153,11 @@ class BlackboardDownloader:
         for item in items:
             if self._cancelled:
                 break
-            await self._paused.wait()
+            # threading.Event — GUI thread'inden güvenli çağrılabilir
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, self._paused.wait)
+            if self._cancelled:
+                break
             async with self._semaphore:
                 await self._handle_item(item, course_dir)
             done += 1
