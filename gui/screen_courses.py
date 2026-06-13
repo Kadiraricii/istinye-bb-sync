@@ -162,16 +162,17 @@ class CoursesScreen(ctk.CTkFrame):
         toolbar.grid(row=2, column=0, sticky="ew", padx=14, pady=(10, 4))
         toolbar.grid_columnconfigure(0, weight=1)
 
+        self._search_var = tk.StringVar()
+        self._search_var.trace_add("write", lambda *_: self._on_search())
         self._entry_search = ctk.CTkEntry(
             toolbar,
+            textvariable=self._search_var,
             placeholder_text="Ders kodu, adı veya hoca ara...",
             fg_color=BG_ELEVATED, border_color=BORDER, border_width=1,
             text_color=TEXT_PRIMARY, placeholder_text_color=TEXT_TERTIARY,
             corner_radius=7, font=FONT_BODY, height=36,
         )
         self._entry_search.grid(row=0, column=0, sticky="ew", padx=(0, 8))
-        self._entry_search.bind("<KeyRelease>", self._on_search)
-        self._entry_search.bind("<<Paste>>", lambda _: self.after(10, self._on_search))
 
         self._sem_menu = ctk.CTkOptionMenu(
             toolbar,
@@ -402,8 +403,8 @@ class CoursesScreen(ctk.CTkFrame):
 
     # ── Yardımcılar ───────────────────────────────────────────
 
-    def _on_search(self, _event=None) -> None:
-        self._filter_text = self._entry_search.get().strip()
+    def _on_search(self) -> None:
+        self._filter_text = self._search_var.get().strip()
         self._render_cards()
 
     def _pick_dir(self) -> None:
