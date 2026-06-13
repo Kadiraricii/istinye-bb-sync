@@ -16,6 +16,7 @@ class ItemType(Enum):
     SCORM            = "scorm"
     HTML             = "html"
     ARCHIVE          = "archive"
+    CODE             = "code"
     OTHER            = "other"
 
 
@@ -57,6 +58,11 @@ EXTENSION_MAP: dict[str, ItemType] = {
     ".mp4":  ItemType.VIDEO_OTHER, ".mov": ItemType.VIDEO_OTHER,
     ".avi":  ItemType.VIDEO_OTHER, ".mkv": ItemType.VIDEO_OTHER,
     ".html": ItemType.HTML,  ".htm": ItemType.HTML,
+    ".py":   ItemType.CODE, ".java": ItemType.CODE,
+    ".c":    ItemType.CODE, ".cpp": ItemType.CODE,  ".h": ItemType.CODE,
+    ".js":   ItemType.CODE, ".ts":  ItemType.CODE,
+    ".txt":  ItemType.CODE, ".csv": ItemType.CODE,
+    ".json": ItemType.CODE, ".xml": ItemType.CODE,
 }
 
 
@@ -199,6 +205,8 @@ class DownloadFilter:
     include_archives: bool = True
     include_scorm:    bool = False
     include_other:    bool = True
+    include_links:    bool = True
+    include_code:     bool = True
     video_mode:       str  = "link"     # "download" | "link" | "skip"
     video_quality:    str  = "720"
 
@@ -217,6 +225,9 @@ class DownloadFilter:
     # Eş zamanlı indirme
     concurrent: int = 2
 
+    # Tree'den manuel olarak çıkarılan item ID'leri
+    excluded_ids: set = field(default_factory=set)
+
     def allows_type(self, item_type: ItemType) -> bool:
         mapping = {
             ItemType.PDF:              self.include_pdf,
@@ -228,7 +239,8 @@ class DownloadFilter:
             ItemType.SCORM:            self.include_scorm,
             ItemType.HTML:             self.include_other,
             ItemType.OTHER:            self.include_other,
-            ItemType.LINK:             False,  # linkler ayrı kaydedilir
+            ItemType.LINK:             self.include_links,
+            ItemType.CODE:             self.include_code,
             ItemType.VIDEO_SHAREPOINT: self.video_mode != "skip",
             ItemType.VIDEO_OTHER:      self.video_mode != "skip",
         }
@@ -236,6 +248,8 @@ class DownloadFilter:
 
     def allows_item(self, item: Item) -> bool:
         if not self.allows_type(item.type):
+            return False
+        if item.id in self.excluded_ids:
             return False
         if self.min_size_mb and item.size_bytes:
             if item.size_bytes < self.min_size_mb * 1_048_576:
