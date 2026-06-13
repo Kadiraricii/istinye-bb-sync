@@ -64,7 +64,13 @@ class App:
         self._gui_queue: queue.Queue = queue.Queue()
 
         self._current_screen: Optional[ctk.CTkFrame] = None
-        self._show_login()
+
+        from core.state import is_first_run
+        if is_first_run():
+            self._show_onboarding()
+        else:
+            self._show_login()
+
         self._root.after(50, self._poll_queue)
 
     def run(self) -> None:
@@ -72,12 +78,24 @@ class App:
 
     # ── Ekran Geçişleri ───────────────────────────────────────
 
+    def _show_onboarding(self, first_run: bool = True) -> None:
+        from gui.onboarding import OnboardingScreen
+        from core.state import mark_initialized
+
+        def _done() -> None:
+            if first_run:
+                mark_initialized()
+            self._show_login()
+
+        self._swap_screen(OnboardingScreen(self._root, on_done=_done))
+
     def _show_login(self) -> None:
         self._swap_screen(
             LoginScreen(
                 self._root,
                 on_login_success=self._on_login_success,
                 on_quick_resume=self._on_quick_resume,
+                on_show_onboarding=lambda: self._show_onboarding(first_run=False),
             )
         )
 
