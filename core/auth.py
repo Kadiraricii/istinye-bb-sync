@@ -179,9 +179,12 @@ class BlackboardAuth:
                         _MS_PASSWORD_SEL, timeout=15_000
                     )
                     await self._page.locator(_MS_PASSWORD_SEL).first.fill(self._password)
-                    self._status("Şifre girildi, giriş bekleniyor...")
                     self._password = None  # bellekten hemen sil
+                    self._status("Şifre girildi, giriş bekleniyor...")
                     await self._page.locator(_MS_SUBMIT_SEL).first.click()
+                    # Hata mesajı çıktı mı kontrol et (yanlış şifre)
+                    await asyncio.sleep(2.0)
+                    await self._check_password_error()
                 except Exception:
                     self._password = None
                     self._status("Şifre alanı bulunamadı — lütfen tarayıcıda girin")
@@ -209,12 +212,66 @@ class BlackboardAuth:
             self._password = None
             self._status("Giriş formu bulunamadı — lütfen tarayıcıda kendiniz girin")
 
+    # Microsoft hata selektörleri — yanlış şifre sonrası gösterilen element
+    _MS_ERROR_SELS = [
+        "#passwordError",
+        "#usernameError",
+        "[data-bind*='sErrorText']",
+        ".alert-error",
+    ]
+
+    async def _check_password_error(self) -> None:
+        """Şifre submit'inden sonra MS hata mesajı var mı kontrol eder."""
+        try:
+            for sel in self._MS_ERROR_SELS:
+                el = self._page.locator(sel).first
+                if await el.count() > 0 and await el.is_visible():
+                    self._password = None
+                    self._status(
+                        "⚠️ Hatalı şifre — lütfen tarayıcıda doğru şifreyi girin"
+                    )
+                    return
+        except Exception:
+            pass
+
+    # Tüm "Hayır" / "No" selektör alternatifleri
+    _HAYIR_SELECTORS = [
+        "input[value='Hayır']",
+        "input[value='No']",
+        "button:has-text('Hayır')",
+        "button:has-text('No')",
+        "[id*='idBtn_Back']",          # Microsoft KMSI "No" button id
+    ]
+
     async def _wait_for_dashboard(self) -> None:
-        await self._page.wait_for_url(
-            f"**{_SUCCESS_PATTERN}**",
-            timeout=300_000,
-            wait_until="domcontentloaded",
-        )
+        deadline = asyncio.get_event_loop().time() + 300
+        _last_status = ""
+        while asyncio.get_event_loop().time() < deadline:
+            url = self._page.url
+            if _SUCCESS_PATTERN in url:
+                return
+            # Blackboard yükleme ekranı (siyah ekran + spinner)
+            if "blackboard.com" in url and _SUCCESS_PATTERN not in url and "login" not in url and "microsoftonline" not in url:
+                msg = "Blackboard'a bağlanılıyor, lütfen bekleyin..."
+                if msg != _last_status:
+                    self._status(msg)
+                    _last_status = msg
+            await self._try_click_hayir()
+            await asyncio.sleep(0.6)
+        raise TimeoutError("Giriş zaman aşımına uğradı (300s)")
+
+    async def _try_click_hayir(self) -> None:
+        """Her iterasyonda 'Oturumunuz açık kalsın mı?' butonunu arar ve tıklar."""
+        try:
+            for sel in self._HAYIR_SELECTORS:
+                el = self._page.locator(sel).first
+                if await el.count() > 0 and await el.is_visible():
+                    await el.click()
+                    self._status("🔒 'Oturumunuz açık kalsın mı?' → Hayır tıklandı ✓")
+                    await asyncio.sleep(1.0)  # tıklamadan sonra yönlendirme için bekle
+                    return
+        except Exception:
+            pass
 
     async def _build_session(self) -> requests.Session:
         cookies = await self._context.cookies()
