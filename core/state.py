@@ -2,12 +2,64 @@ from __future__ import annotations
 import json
 import random
 import asyncio
+import threading
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+_manifest_lock = threading.Lock()
+
+import requests
+
 from core.config import DATA_DIR, DOWNLOADS_DIR, MANIFEST_FILE, PROGRESS_FILE, REMEMBER_FILE
 from core.models import Course, Item, DownloadStatus, CourseStatus
+
+COOKIES_FILE = DATA_DIR / "session.json"
+
+
+# ── Oturum Cookie Kalıcılığı ─────────────────────────────────
+
+def save_cookies(session: requests.Session) -> None:
+    """Session cookie'lerini diske kaydet."""
+    ensure_dirs()
+    cookies = [
+        {
+            "name":   c.name,
+            "value":  c.value,
+            "domain": c.domain or "",
+            "path":   c.path or "/",
+        }
+        for c in session.cookies
+    ]
+    data = {
+        "saved_at":   datetime.now().isoformat(),
+        "user_agent": session.headers.get("User-Agent", ""),
+        "cookies":    cookies,
+    }
+    COOKIES_FILE.write_text(json.dumps(data, ensure_ascii=False))
+
+
+def delete_cookies() -> None:
+    """Kaydedilmiş cookie dosyasını sil."""
+    COOKIES_FILE.unlink(missing_ok=True)
+
+
+def load_cookies() -> Optional[tuple[requests.Session, datetime]]:
+    """Kaydedilmiş cookie'leri yükle. (session, saved_at) döner, None ise geçersiz/yok."""
+    if not COOKIES_FILE.exists():
+        return None
+    try:
+        data  = json.loads(COOKIES_FILE.read_text())
+        saved = datetime.fromisoformat(data["saved_at"])
+        session = requests.Session()
+        for c in data.get("cookies", []):
+            session.cookies.set(c["name"], c["value"], domain=c.get("domain", ""))
+        ua = data.get("user_agent", "")
+        if ua:
+            session.headers.update({"User-Agent": ua})
+        return session, saved
+    except Exception:
+        return None
 
 
 # ── Beni Hatırla ─────────────────────────────────────────────
@@ -48,7 +100,8 @@ def save_manifest(courses: dict[str, Course]) -> None:
         "generated_at": datetime.now().isoformat(),
         "courses": {cid: c.to_dict() for cid, c in courses.items()},
     }
-    MANIFEST_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2))
+    with _manifest_lock:
+        MANIFEST_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2))
 
 
 def load_manifest() -> dict[str, Course]:
