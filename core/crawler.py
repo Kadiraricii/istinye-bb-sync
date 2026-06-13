@@ -23,7 +23,7 @@ from core.models import (
     Item,
     ItemType,
 )
-from core.state import save_manifest, update_course_status
+from core.state import save_manifest
 
 
 def fetch_user_name(session: requests.Session) -> str:
@@ -98,8 +98,7 @@ class BlackboardCrawler:
                 )
                 # contacts alanından hoca adlarını hemen çek (ekstra API çağrısı gerekmez)
                 for contact in course_data.get("contacts", []):
-                    nm   = contact.get("name", {})
-                    full = f"{nm.get('given','').strip()} {nm.get('family','').strip()}".strip()
+                    full = self._extract_name(contact)
                     if full and full not in course.instructors:
                         course.instructors.append(full)
                 courses[cid] = course
@@ -116,7 +115,6 @@ class BlackboardCrawler:
         """Bir kursun tüm içerik ağacını keşfeder, manifest'i günceller."""
         self._status(f"Taranıyor: {course.name}")
         manifest_key = course.course_code or course.id
-        update_course_status(manifest_key, CourseStatus.CRAWLING)
 
         try:
             items = self._crawl_contents(course.id, parent_hint="")
@@ -125,12 +123,10 @@ class BlackboardCrawler:
                 course.instructors = self._get_instructors(course.id, course.course_code)
             course.status = CourseStatus.CRAWLED
             all_courses[manifest_key] = course
-            save_manifest(all_courses)
             self._status(f"{course.name}: {len(items)} içerik bulundu")
         except Exception as exc:
             course.status = CourseStatus.CRAWL_FAILED
             all_courses[manifest_key] = course
-            save_manifest(all_courses)
             self._status(f"{course.name}: tarama hatası — {exc}")
 
     # ── İç: İçerik Recursive Tarama ──────────────────────────
@@ -200,8 +196,8 @@ class BlackboardCrawler:
 
         return items
 
-    _INSTRUCTOR_ROLES = {"Instructor", "TeachingAssistant", "CourseBuilder", "P",
-                          "primaryInstructor", "instructor"}
+    # Öğrenci/misafir rolleri — bunlar dışındaki herkes hoca sayılır
+    _STUDENT_ROLES = {"Student", "S", "Observer", "Guest", "Auditor"}
 
     def _get_instructors(self, internal_id: str, external_code: str = "") -> list[str]:
         """Hoca adlarını çeker. Önce internal ID, sonra external code ile dener."""
@@ -223,11 +219,11 @@ class BlackboardCrawler:
                         break
                     data = resp.json()
                     for entry in data.get("results", []):
-                        if entry.get("courseRoleId") not in self._INSTRUCTOR_ROLES:
+                        role = entry.get("courseRoleId", "")
+                        if role in self._STUDENT_ROLES:
                             continue
                         user = entry.get("user", {})
-                        nm   = user.get("name", {})
-                        full = f"{nm.get('given','').strip()} {nm.get('family','').strip()}".strip()
+                        full = self._extract_name(user)
                         if full and full not in names:
                             names.append(full)
                     url = self._next_page(data)
@@ -236,6 +232,22 @@ class BlackboardCrawler:
             except Exception:
                 continue
         return []
+
+    @staticmethod
+    def _extract_name(user: dict) -> str:
+        """Kullanıcı nesnesinden en iyi adı çıkarır."""
+        nm = user.get("name", {})
+        # 1. given + family
+        given  = nm.get("given", "").strip()
+        family = nm.get("family", "").strip()
+        if given or family:
+            return f"{given} {family}".strip()
+        # 2. name.full
+        full = nm.get("full", "").strip()
+        if full:
+            return full
+        # 3. displayName
+        return user.get("displayName", "").strip()
 
     def _get_attachments(self, course_id: str, content_id: str) -> list[dict]:
         """Bir içeriğin dosya attachment'larını çeker."""
