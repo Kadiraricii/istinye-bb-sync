@@ -178,6 +178,7 @@ class App:
             ctk.CTkButton(
                 r, text="Yeniden İndir", command=_redownload, **BTN_PRIMARY,
             ).grid(row=0, column=1, padx=(4, 0), sticky="ew")
+            popup.protocol("WM_DELETE_WINDOW", _cancel)  # X = Geri Dön
             self._root.attributes("-topmost", False)
             popup.after(50, lambda: (popup.lift(), popup.focus_force()))
             popup.bind("<Destroy>", lambda _: self._root.attributes("-topmost", True), add="+")
@@ -213,6 +214,8 @@ class App:
             on_resume=lambda: self._downloader and self._downloader.resume(),
             on_cancel=self._cancel_download,
             on_finish=self._show_courses_cached,
+            on_retry=self._retry_failed,
+            dest_dir=self._dest_dir,
         )
         screen.set_courses(self._selected, total=pending_total)
         self._swap_screen(screen)
@@ -263,6 +266,53 @@ class App:
     def _cancel_download(self) -> None:
         if self._downloader:
             self._downloader.cancel()
+
+    def _retry_failed(self) -> None:
+        from core.state import clear_failed_for_courses
+        clear_failed_for_courses(self._selected)
+        self._start_progress_screen()
+
+    def _send_notification(self, downloaded: int, failed: int) -> None:
+        import platform, subprocess
+        sys_name = platform.system()
+        try:
+            if sys_name == "Darwin":
+                if failed:
+                    msg = f"{downloaded} dosya indirildi, {failed} hata oluştu"
+                else:
+                    msg = f"{downloaded} dosya başarıyla indirildi"
+                subprocess.run(
+                    ["osascript", "-e",
+                     f'display notification "{msg}" with title "Blackboard Sync"'],
+                    check=False, capture_output=True, timeout=5,
+                )
+            elif sys_name == "Windows":
+                # Windows: base64 encoded command — UTF-16LE ile Unicode güvenli
+                import base64
+                if failed:
+                    msg = f"{downloaded} dosya indirildi, {failed} hata"
+                else:
+                    msg = f"{downloaded} dosya indirildi"
+                ps = (
+                    "Add-Type -AssemblyName System.Windows.Forms\n"
+                    "$n = New-Object System.Windows.Forms.NotifyIcon\n"
+                    "$n.Icon = [System.Drawing.SystemIcons]::Application\n"
+                    "$n.BalloonTipTitle = 'Blackboard Sync'\n"
+                    f"$n.BalloonTipText = '{msg}'\n"
+                    "$n.Visible = $True\n"
+                    "$n.ShowBalloonTip(4000)\n"
+                    "Start-Sleep 4\n"
+                    "$n.Dispose()"
+                )
+                encoded = base64.b64encode(ps.encode("utf-16-le")).decode("ascii")
+                subprocess.Popen(
+                    ["powershell", "-WindowStyle", "Hidden",
+                     "-NonInteractive", "-EncodedCommand", encoded],
+                    creationflags=subprocess.CREATE_NO_WINDOW,
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                )
+        except Exception:
+            pass
 
     # ── Async Workers ─────────────────────────────────────────
 
@@ -398,6 +448,7 @@ class App:
             course_id, st = payload
             screen.update_course_status(course_id, st)
         elif event == "download_done" and isinstance(screen, ProgressScreen):
+            self._send_notification(screen._success_count, screen._error_count)
             screen.show_summary(
                 downloaded=screen._success_count,
                 failed=screen._error_count,
