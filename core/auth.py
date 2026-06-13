@@ -44,8 +44,9 @@ class BlackboardAuth:
         self._session:  Optional[requests.Session] = None
         self._loop:     Optional[asyncio.AbstractEventLoop] = None
         self._password: Optional[str] = None   # bellekte tutulur, kullanıldıktan sonra silinir
-        self._on_status:         Optional[Callable[[str], None]] = None
-        self._on_browser_closed: Optional[Callable[[], None]]   = None
+        self._on_status:          Optional[Callable[[str], None]] = None
+        self._on_browser_closed:  Optional[Callable[[], None]]   = None
+        self._on_password_error:  Optional[Callable[[], None]]   = None
         # Geçici profil — aynı oturumda tarayıcı kapansa Microsoft login korunur
         self._user_data_dir: str = tempfile.mkdtemp(prefix="bb_sync_profile_")
 
@@ -57,11 +58,13 @@ class BlackboardAuth:
         password: Optional[str] = None,
         on_status: Optional[Callable[[str], None]] = None,
         on_browser_closed: Optional[Callable[[], None]] = None,
+        on_password_error: Optional[Callable[[], None]] = None,
     ) -> requests.Session:
-        self._on_status         = on_status
-        self._on_browser_closed = on_browser_closed
-        self._loop              = asyncio.get_event_loop()
-        self._password          = password
+        self._on_status          = on_status
+        self._on_browser_closed  = on_browser_closed
+        self._on_password_error  = on_password_error
+        self._loop               = asyncio.get_event_loop()
+        self._password           = password
 
         self._status("Tarayıcı başlatılıyor...")
         await self._launch_browser()
@@ -178,15 +181,13 @@ class BlackboardAuth:
 
             if self._password:
                 try:
-                    # Şifre alanı çıkana kadar bekle
                     await self._page.wait_for_selector(
                         _MS_PASSWORD_SEL, timeout=15_000
                     )
                     await self._page.locator(_MS_PASSWORD_SEL).first.fill(self._password)
-                    self._password = None  # bellekten hemen sil
+                    self._password = None
                     self._status("Şifre girildi, giriş bekleniyor...")
                     await self._page.locator(_MS_SUBMIT_SEL).first.click()
-                    # Hata mesajı çıktı mı kontrol et (yanlış şifre)
                     await asyncio.sleep(2.0)
                     await self._check_password_error()
                 except Exception:
@@ -231,9 +232,9 @@ class BlackboardAuth:
                 el = self._page.locator(sel).first
                 if await el.count() > 0 and await el.is_visible():
                     self._password = None
-                    self._status(
-                        "⚠️ Hatalı şifre — lütfen tarayıcıda doğru şifreyi girin"
-                    )
+                    if self._on_password_error:
+                        self._on_password_error()
+                    # Tarayıcıyı kapatma — kullanıcı orada düzeltebilir
                     return
         except Exception:
             pass
@@ -250,16 +251,22 @@ class BlackboardAuth:
     async def _wait_for_dashboard(self) -> None:
         deadline = asyncio.get_event_loop().time() + 300
         _last_status = ""
+        _err_check_counter = 0
         while asyncio.get_event_loop().time() < deadline:
             url = self._page.url
             if _SUCCESS_PATTERN in url:
                 return
-            # Blackboard yükleme ekranı (siyah ekran + spinner)
             if "blackboard.com" in url and _SUCCESS_PATTERN not in url and "login" not in url and "microsoftonline" not in url:
                 msg = "Blackboard'a bağlanılıyor, lütfen bekleyin..."
                 if msg != _last_status:
                     self._status(msg)
                     _last_status = msg
+            # Her 3 iterasyonda (≈1.8s) tarayıcıda şifre hatası var mı kontrol et
+            if "microsoftonline.com" in url:
+                _err_check_counter += 1
+                if _err_check_counter >= 3:
+                    _err_check_counter = 0
+                    await self._check_password_error()
             await self._try_click_hayir()
             await asyncio.sleep(0.6)
         raise TimeoutError("Giriş zaman aşımına uğradı (300s)")
@@ -267,12 +274,17 @@ class BlackboardAuth:
     async def _try_click_hayir(self) -> None:
         """Her iterasyonda 'Oturumunuz açık kalsın mı?' butonunu arar ve tıklar."""
         try:
+            # Microsoft şifre sayfasındayken dokunma — idBtn_Back orada Geri butonu
+            if "microsoftonline.com" in self._page.url:
+                pwd = self._page.locator(_MS_PASSWORD_SEL).first
+                if await pwd.count() > 0 and await pwd.is_visible():
+                    return
             for sel in self._HAYIR_SELECTORS:
                 el = self._page.locator(sel).first
                 if await el.count() > 0 and await el.is_visible():
                     await el.click()
                     self._status("🔒 'Oturumunuz açık kalsın mı?' → Hayır tıklandı ✓")
-                    await asyncio.sleep(1.0)  # tıklamadan sonra yönlendirme için bekle
+                    await asyncio.sleep(1.0)
                     return
         except Exception:
             pass
