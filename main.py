@@ -1,9 +1,10 @@
+from gui.splash import SplashScreen
 from gui.app import App
 
 
 def main() -> None:
-    app = App()
-    app.run()
+    SplashScreen().run()
+    App().run()
 
 
 if __name__ == "__main__":
