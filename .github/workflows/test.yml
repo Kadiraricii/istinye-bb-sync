@@ -1,0 +1,44 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Python ${{ matrix.python }} · ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false   # Birinin başarısız olması diğerini durdurmaz
+      matrix:
+        os: [windows-latest, macos-latest]
+        python: ["3.11", "3.12"]
+
+    steps:
+      - name: Kodu indir
+        uses: actions/checkout@v4
+
+      - name: Python ${{ matrix.python }} kur
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+
+      - name: Bağımlılıkları yükle
+        run: pip install -r requirements.txt
+
+      - name: Playwright Chromium indir
+        run: playwright install chromium --with-deps
+
+      - name: Testleri çalıştır
+        run: pytest tests/ -v --tb=short
+
+      - name: Test sonuçlarını kaydet (başarısız olursa)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.os }}-py${{ matrix.python }}
+          path: .pytest_cache/
