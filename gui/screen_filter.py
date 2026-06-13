@@ -25,11 +25,6 @@ _OFF_BDR = "#1a2d44"
 _OFF_TXT = "#4a6888"
 _HOV_BG  = "#0e1e30"
 
-# Tree renkleri
-_TREE_BG     = "#080e1a"
-_TREE_SEL_BG = "#061a10"
-_TREE_SEL_FG = "#34d399"
-
 # Chip'te gösterilecek dosya türleri (SCORM yok)
 _TYPE_CHIPS = [
     ("📄", "PDF",    ItemType.PDF),
@@ -75,12 +70,6 @@ _SPEED_OPTS = [
     (2, "×2"),
     (5, "×5"),
 ]
-
-
-def _bind_tree(widget, event: str, handler) -> None:
-    widget.bind(event, handler)
-    for child in widget.winfo_children():
-        _bind_tree(child, event, handler)
 
 
 # ── Toggle Chip ───────────────────────────────────────────────
@@ -160,8 +149,6 @@ class _VideoSegment(ctk.CTkFrame):
         pos: str = "mid",   # "left" | "mid" | "right"
         command: Optional[Callable] = None,
     ) -> None:
-        radii = {"left": (10, 0, 0, 10), "mid": (0, 0, 0, 0), "right": (0, 10, 10, 0)}
-        r = radii.get(pos, (0, 0, 0, 0))
         super().__init__(
             master, cursor="hand2",
             fg_color=_OFF_BG, border_width=1, border_color=_OFF_BDR,
@@ -328,12 +315,8 @@ class FilterScreen(ctk.CTkFrame):
         self._video_quality = ctk.StringVar(value="720")
         self._concurrent    = ctk.IntVar(value=2)
 
-        # Tree state: ID → checked (True=indir, False=atla)
+        # item ID → seçili mi (False = listeden çıkar)
         self._item_checked: dict[str, bool] = {}
-        # Tree node ID → item ID
-        self._node_to_item: dict[str, str] = {}
-        # Tüm item'lar (ID → Item) — tree için flat liste
-        self._all_items: dict[str, Item] = {}
 
         self._chip_widgets: dict[str, _ToggleChip] = {}
 
@@ -407,25 +390,6 @@ class FilterScreen(ctk.CTkFrame):
             footer, text="İndirmeyi Başlat →",
             command=self._start, **BTN_PRIMARY, width=160,
         ).grid(row=1, column=2, padx=12, pady=12)
-
-    # ── Bölüm helper ─────────────────────────────────────────
-
-    def _section(self, parent, title: str, icon: str, row: int) -> ctk.CTkFrame:
-        outer = ctk.CTkFrame(parent, fg_color="#0d1120", corner_radius=12,
-                             border_width=1, border_color="#141e35")
-        outer.grid(row=row, column=0, sticky="ew", padx=18, pady=(14, 0))
-        outer.grid_columnconfigure(0, weight=1)
-
-        hdr = ctk.CTkFrame(outer, fg_color="transparent")
-        hdr.grid(row=0, column=0, padx=16, pady=(14, 10), sticky="w")
-
-        ctk.CTkFrame(hdr, width=3, height=14, corner_radius=2, fg_color=ACCENT).pack(side="left", padx=(0, 8))
-        ctk.CTkLabel(hdr, text=icon, font=("Inter", 11), text_color=ACCENT).pack(side="left", padx=(0, 5))
-        ctk.CTkLabel(hdr, text=title, font=("Inter", 10, "bold"), text_color="#3a5a78").pack(side="left")
-
-        inner = ctk.CTkFrame(outer, fg_color="transparent")
-        inner.grid(row=1, column=0, sticky="ew", padx=14, pady=(0, 16))
-        return inner
 
     # ── Birleşik Kontroller Kartı ─────────────────────────────
 
@@ -555,19 +519,13 @@ class FilterScreen(ctk.CTkFrame):
         self._list_frame.grid(row=0, column=0, sticky="ew")
         self._list_frame.grid_columnconfigure(0, weight=1)
 
-        # Satır widget'larını tutacak liste (rebuild için)
-        self._list_rows: list[tk.Frame] = []
-
     def _rebuild_tree(self) -> None:
         """Listeyi mevcut filtre + kurs verisine göre yeniden oluşturur."""
         if not hasattr(self, "_list_frame"):
             return
 
-        # Eski satırları temizle
         for w in self._list_frame.winfo_children():
             w.destroy()
-        self._list_rows.clear()
-        self._node_to_item.clear()
 
         active_types = self._active_types()
         row_idx = 0
@@ -643,10 +601,9 @@ class FilterScreen(ctk.CTkFrame):
                 def _enter(e, f=row_frame):
                     for w in f.winfo_children(): w.configure(bg="#0c1628")
                     f.configure(bg="#0c1628")
-                def _leave(e, f=row_frame, c=checked):
-                    bg = "#080e1a"
-                    for w in f.winfo_children(): w.configure(bg=bg)
-                    f.configure(bg=bg)
+                def _leave(e, f=row_frame):
+                    for w in f.winfo_children(): w.configure(bg="#080e1a")
+                    f.configure(bg="#080e1a")
 
                 # Tıklama
                 iid = item.id
@@ -666,8 +623,6 @@ class FilterScreen(ctk.CTkFrame):
                     w.bind("<Button-1>", _click)
 
                 row_idx += 1
-
-        self._update_summary()
 
     def _active_types(self) -> set[ItemType]:
         """Şu an seçili olan dosya türlerini döner."""
@@ -741,24 +696,17 @@ class FilterScreen(ctk.CTkFrame):
     def _reset(self) -> None:
         for var in self._type_vars.values():
             var.set(True)
-        self._link.set(True)
         self._video_enabled.set(True)
         self._video_mode.set("link")
         self._video_quality.set("720")
         self._concurrent.set(2)
         self._item_checked.clear()
         self._on_video_chip_change()
-        self._rebuild_tree()
 
     # ── Public API ────────────────────────────────────────────
 
     def set_courses(self, courses: dict[str, Course]) -> None:
         self._courses = courses
-        self._all_items = {
-            it.id: it
-            for c in courses.values()
-            for it in c.items.values()
-        }
         self._update_chips()
         self._rebuild_tree()
         self._update_summary()
