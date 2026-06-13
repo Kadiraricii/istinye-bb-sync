@@ -149,7 +149,7 @@ class BlackboardCrawler:
 
             for entry in data.get("results", []):
                 avail = entry.get("availability", {}).get("available", "No")
-                if avail not in ("Yes", "PartiallyVisible"):
+                if avail == "No":
                     continue
 
                 handler_id = entry.get("contentHandler", {}).get("id", "")
@@ -157,8 +157,8 @@ class BlackboardCrawler:
                 content_id = entry.get("id", "")
                 hint       = f"{parent_hint}/{title}".lstrip("/")
 
-                # Klasör → recursive
-                if handler_id == "resource/x-bb-folder" or entry.get("hasChildren"):
+                # Klasör → sadece recursive, attachment yok
+                if handler_id == "resource/x-bb-folder":
                     children = self._crawl_contents(course_id, content_id, hint)
                     items.extend(children)
                     continue
@@ -176,6 +176,12 @@ class BlackboardCrawler:
                             path_hint=hint,
                         ))
                     continue
+
+                # hasChildren → recursive (klasör olmayan doküman/içerik)
+                if entry.get("hasChildren"):
+                    children = self._crawl_contents(course_id, content_id, hint)
+                    items.extend(children)
+                    # continue YOK: dokümanın kendi attachment'ları da kontrol edilir
 
                 # Dosya attachment'ları
                 attachments = self._get_attachments(course_id, content_id)

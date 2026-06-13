@@ -106,7 +106,7 @@ class BlackboardDownloader:
         progress = load_progress()
         items = [
             it for it in course.items.values()
-            if (it.type == ItemType.LINK or self._filter.allows_item(it))
+            if self._filter.allows_item(it)
             and progress.get(it.id, {}).get("status") not in ("downloaded", "skipped")
         ]
 
