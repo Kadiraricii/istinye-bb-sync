@@ -110,13 +110,108 @@ class App:
         courses_screen.set_loading(False)
 
     def _show_progress(self) -> None:
+        from core.state import load_progress
+        import customtkinter as ctk
+        from gui.theme import (
+            BG_ELEVATED, BG_BASE, BORDER, ACCENT, TEXT_PRIMARY,
+            TEXT_SECONDARY, TEXT_TERTIARY, FONT_BODY, FONT_SMALL, BTN_PRIMARY, BTN_SECONDARY,
+        )
+
+        progress = load_progress()
+
+        def _pending(item) -> bool:
+            p = progress.get(item.id, {})
+            status = p.get("status")
+            if status == "skipped":
+                return False
+            if status == "downloaded":
+                local = p.get("local_path", "")
+                return not (local and Path(local).exists())
+            return True
+
+        pending_total = sum(
+            1 for c in self._selected.values()
+            for item in c.items.values()
+            if self._dl_filter and self._dl_filter.allows_item(item) and _pending(item)
+        )
+
+        if pending_total == 0:
+            # Tüm dosyalar zaten diskte mevcut
+            from core.state import clear_progress_for_courses
+            total_files = sum(len(c.items) for c in self._selected.values())
+
+            popup = ctk.CTkToplevel(self._root)
+            popup.title("Dosyalar Mevcut")
+            popup.geometry("380x220")
+            popup.resizable(False, False)
+            popup.grab_set()
+            popup.attributes("-topmost", True)
+            popup.configure(fg_color=BG_ELEVATED)
+
+            ctk.CTkFrame(popup, fg_color=ACCENT, corner_radius=0, height=4).pack(fill="x")
+            ctk.CTkLabel(
+                popup, text="✓  Dosyalar Zaten İndirilmiş",
+                font=("Inter", 14, "bold"), text_color=ACCENT,
+            ).pack(pady=(18, 4))
+            ctk.CTkLabel(
+                popup,
+                text=f"{total_files} dosya zaten diskinizde mevcut.\nYeniden indirmek istiyor musunuz?",
+                font=FONT_BODY, text_color=TEXT_SECONDARY, justify="center",
+            ).pack(padx=24, pady=(0, 20))
+
+            r = ctk.CTkFrame(popup, fg_color="transparent")
+            r.pack(padx=24, fill="x")
+            r.grid_columnconfigure(0, weight=1)
+            r.grid_columnconfigure(1, weight=1)
+
+            def _redownload():
+                popup.destroy()
+                clear_progress_for_courses(self._selected)
+                self._start_progress_screen()
+
+            def _cancel():
+                popup.destroy()
+
+            ctk.CTkButton(
+                r, text="Geri Dön", command=_cancel, **BTN_SECONDARY,
+            ).grid(row=0, column=0, padx=(0, 4), sticky="ew")
+            ctk.CTkButton(
+                r, text="Yeniden İndir", command=_redownload, **BTN_PRIMARY,
+            ).grid(row=0, column=1, padx=(4, 0), sticky="ew")
+            return
+
+        self._start_progress_screen(pending_total)
+
+    def _start_progress_screen(self, pending_total: int = 0) -> None:
+        from core.state import load_progress
+
+        if pending_total == 0:
+            progress = load_progress()
+
+            def _pending(item) -> bool:
+                p = progress.get(item.id, {})
+                status = p.get("status")
+                if status == "skipped":
+                    return False
+                if status == "downloaded":
+                    local = p.get("local_path", "")
+                    return not (local and Path(local).exists())
+                return True
+
+            pending_total = sum(
+                1 for c in self._selected.values()
+                for item in c.items.values()
+                if self._dl_filter and self._dl_filter.allows_item(item) and _pending(item)
+            )
+
         screen = ProgressScreen(
             self._root,
             on_pause=lambda: self._downloader and self._downloader.pause(),
             on_resume=lambda: self._downloader and self._downloader.resume(),
             on_cancel=self._cancel_download,
+            on_finish=self._show_courses_cached,
         )
-        screen.set_courses(self._selected)
+        screen.set_courses(self._selected, total=pending_total)
         self._swap_screen(screen)
         self._run_async(self._async_download(screen))
 
@@ -224,7 +319,9 @@ class App:
 
     async def _async_download(self, screen: ProgressScreen) -> None:
         def status(msg: str) -> None:
-            self._gui_queue.put(("log", (msg, None)))
+            # ✓ / ✗ ile başlayanlar on_file_done üzerinden zaten renkli gelir
+            if not msg.startswith(("✓", "✗")):
+                self._gui_queue.put(("log", (msg, None)))
 
         def progress(course_name: str, done: int, total: int) -> None:
             self._gui_queue.put(("progress", (course_name, done, total)))
@@ -298,11 +395,10 @@ class App:
             course_id, st = payload
             screen.update_course_status(course_id, st)
         elif event == "download_done" and isinstance(screen, ProgressScreen):
-            stats = payload
             screen.show_summary(
-                downloaded=stats.get("downloaded", 0),
-                failed=stats.get("failed", 0),
-                skipped=stats.get("skipped", 0),
+                downloaded=screen._success_count,
+                failed=screen._error_count,
+                skipped=screen._skipped_count,
             )
 
     # ── Klavye ───────────────────────────────────────────────
