@@ -39,19 +39,21 @@ class BlackboardDownloader:
 
     def __init__(
         self,
-        session:      requests.Session,
-        base_dir:     Path,
-        dl_filter:    DownloadFilter,
-        on_status:    Optional[Callable[[str], None]] = None,
-        on_progress:  Optional[Callable[[str, int, int], None]] = None,
-        on_file_done: Optional[Callable[[Item, bool], None]] = None,
+        session:           requests.Session,
+        base_dir:          Path,
+        dl_filter:         DownloadFilter,
+        on_status:         Optional[Callable[[str], None]] = None,
+        on_progress:       Optional[Callable[[str, int, int], None]] = None,
+        on_file_done:      Optional[Callable[[Item, bool], None]] = None,
+        on_course_status:  Optional[Callable[[str, str], None]] = None,
     ) -> None:
-        self._session      = session
-        self._base_dir     = base_dir
-        self._filter       = dl_filter
-        self._on_status    = on_status
-        self._on_progress  = on_progress
-        self._on_file_done = on_file_done
+        self._session           = session
+        self._base_dir          = base_dir
+        self._filter            = dl_filter
+        self._on_status         = on_status
+        self._on_progress       = on_progress
+        self._on_file_done      = on_file_done
+        self._on_course_status  = on_course_status
         self._semaphore:   Optional[asyncio.Semaphore] = None
         self._cancelled    = False
         self._paused       = asyncio.Event()
@@ -104,13 +106,16 @@ class BlackboardDownloader:
         progress = load_progress()
         items = [
             it for it in course.items.values()
-            if self._filter.allows_item(it)
+            if (it.type == ItemType.LINK or self._filter.allows_item(it))
             and progress.get(it.id, {}).get("status") not in ("downloaded", "skipped")
         ]
 
         total = len(items)
         done  = 0
         self._status(f"{course.name}: {total} öğe")
+
+        if self._on_course_status:
+            self._on_course_status(course.id, "active")
 
         for item in items:
             if self._cancelled:
@@ -122,6 +127,9 @@ class BlackboardDownloader:
             if self._on_progress:
                 self._on_progress(course.name, done, total)
             await request_delay()
+
+        if self._on_course_status:
+            self._on_course_status(course.id, "done")
 
     # ── Yönlendirme ───────────────────────────────────────────
 
