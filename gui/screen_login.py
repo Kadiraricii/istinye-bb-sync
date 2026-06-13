@@ -511,9 +511,20 @@ class LoginScreen(ctk.CTkFrame):
             text_color=TEXT_PRIMARY, placeholder_text_color=TEXT_TERTIARY,
             corner_radius=10, font=("Inter", 14), height=50,
         )
+        pwd_error = getattr(self, "_pwd_error", None)
+        self._pwd_error = None
+        border = ERROR if pwd_error else BORDER
+        self._entry_pwd.configure(border_color=border)
         self._entry_pwd.grid(row=3, column=0, padx=28, sticky="ew")
         self._entry_pwd.bind("<Return>", lambda _: self._start_login())
         self._entry_pwd.focus_set()
+
+        if pwd_error:
+            ctk.CTkLabel(
+                card,
+                text=f"⚠  {pwd_error} — lütfen tekrar deneyin",
+                font=("Inter", 11), text_color=ERROR, anchor="w",
+            ).grid(row=4, column=0, padx=30, pady=(5, 0), sticky="w")
 
         # ── Opsiyonel bilgi kutusu ────────────────
         info_box = ctk.CTkFrame(
@@ -521,7 +532,7 @@ class LoginScreen(ctk.CTkFrame):
             fg_color=BG_HOVER, corner_radius=8,
             border_width=1, border_color=BORDER,
         )
-        info_box.grid(row=4, column=0, padx=28, pady=(12, 0), sticky="ew")
+        info_box.grid(row=5, column=0, padx=28, pady=(12, 0), sticky="ew")
         info_box.grid_columnconfigure(1, weight=1)
 
         ctk.CTkLabel(
@@ -545,7 +556,7 @@ class LoginScreen(ctk.CTkFrame):
             text_color="#ffffff", corner_radius=10,
             font=("Inter", 14, "bold"), height=50,
         )
-        self._btn_main.grid(row=5, column=0, padx=28, pady=(18, 24), sticky="ew")
+        self._btn_main.grid(row=6, column=0, padx=28, pady=(18, 24), sticky="ew")
 
     # ─────────────────────────────────────────────────────────
     # BAĞLANMA EKRANI
@@ -668,6 +679,7 @@ class LoginScreen(ctk.CTkFrame):
             daemon=True,
         ).start()
 
+
     def _show_browser(self) -> None:
         if self._auth:
             self._auth.bring_to_front_sync()
@@ -683,6 +695,7 @@ class LoginScreen(ctk.CTkFrame):
                     password=password,
                     on_status=self._set_status_thread,
                     on_browser_closed=self._handle_browser_closed,
+                    on_password_error=self._handle_password_error,
                 )
             )
             self.after(0, lambda: self._login_done(student_no, session))
@@ -698,10 +711,28 @@ class LoginScreen(ctk.CTkFrame):
         self._set_status("Giriş başarılı!", DOT_OK)
         self._on_login_success(student_no, session)
 
+    def _handle_password_error(self) -> None:
+        """Auth thread'den çağrılır — tarayıcı açık kalır, sadece GUI güncellenir."""
+        self.after(0, self._show_password_error_on_connecting)
+
+    def _show_password_error_on_connecting(self) -> None:
+        lbl = getattr(self, "_lbl_connecting", None)
+        if lbl and lbl.winfo_exists():
+            lbl.configure(
+                text="Hatalı şifre — tarayıcıda doğru şifreyi girin",
+                text_color=ERROR,
+            )
+        self._set_status("Hatalı şifre — tarayıcıda doğru şifreyi girin", DOT_ERROR)
+        # Tarayıcıyı göster butonu varsa öne çıkar
+        btn = getattr(self, "_btn_show_browser", None)
+        if btn and btn.winfo_exists():
+            btn.configure(text="Tarayıcıyı Göster  → (şifreyi düzelt)")
+
     def _login_error(self, msg: str) -> None:
         self._login_running = False
         self._spinner_active = False
-        self._set_status(f"Hata: {msg}", DOT_ERROR)
+        self._pwd_error = msg if "Hatalı şifre" in msg else None
+        self._set_status(msg, DOT_ERROR)
         self._build_step2()
 
     def _handle_browser_closed(self) -> None:
