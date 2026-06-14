@@ -281,7 +281,6 @@ class LoginScreen(ctk.CTkFrame):
                 width=120, height=26,
             ).grid(row=0, column=1, padx=(0, 12), pady=10, sticky="e")
 
-        # Dot + status — _build_step1 içinde label yanında oluşturulur
         self._dot        = None
         self._lbl_status = None
 
@@ -305,11 +304,26 @@ class LoginScreen(ctk.CTkFrame):
             self._build_welcome_block(card, start_row=0)
             r = 3
 
-        # ── Label ─────────────────────────────────
+        # ── Label + Hazır satırı ──────────────────
+        lbl_row = ctk.CTkFrame(card, fg_color="transparent")
+        lbl_row.grid(row=r, column=0, padx=26, pady=(26, 7), sticky="ew"); r += 1
+        lbl_row.grid_columnconfigure(0, weight=1)
+
         ctk.CTkLabel(
-            card, text="Öğrenci Numarası",
+            lbl_row, text="Öğrenci Numarası",
             font=("Inter", 13, "bold"), text_color=TEXT_PRIMARY, anchor="w",
-        ).grid(row=r, column=0, padx=26, pady=(26, 7), sticky="w"); r += 1
+        ).grid(row=0, column=0, sticky="w")
+
+        self._dot = ctk.CTkLabel(
+            lbl_row, text="●", font=("Inter", 9), text_color=DOT_IDLE,
+        )
+        self._dot.grid(row=0, column=1, padx=(0, 4), sticky="e")
+
+        self._lbl_status = ctk.CTkLabel(
+            lbl_row, text="Hazır",
+            font=("Inter", 11), text_color=DOT_IDLE,
+        )
+        self._lbl_status.grid(row=0, column=2, sticky="e")
 
         # ── Entry ─────────────────────────────────
         self._entry_no = ctk.CTkEntry(
@@ -847,8 +861,10 @@ class LoginScreen(ctk.CTkFrame):
         self.after(0, lambda m=msg: self._set_status(m, DOT_BUSY))
 
     def _set_status(self, msg: str, color: str = DOT_IDLE) -> None:
-        self._lbl_status.configure(text=msg, text_color=color)
-        self._dot.configure(text_color=color)
+        if self._lbl_status and self._lbl_status.winfo_exists():
+            self._lbl_status.configure(text=msg, text_color=color)
+        if self._dot and self._dot.winfo_exists():
+            self._dot.configure(text_color=color)
         lbl = getattr(self, "_lbl_connecting", None)
         if lbl and lbl.winfo_exists():
             lbl.configure(text=msg, text_color=color)
